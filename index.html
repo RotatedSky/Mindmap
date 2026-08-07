@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2e6fb0">
+  <title>脑图工具</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header id="toolbar">
+    <div class="brand"><span class="logo">🧠</span> 脑图</div>
+    <div class="tb-group">
+      <button id="btn-new" title="新建脑图">新建</button>
+      <button id="btn-undo" title="撤销 (Ctrl+Z)">↩</button>
+      <button id="btn-redo" title="重做 (Ctrl+Shift+Z)">↪</button>
+    </div>
+    <div class="tb-group">
+      <button id="btn-import" title="导入 JSON 文件 / Markdown 大纲">导入</button>
+    </div>
+    <div class="tb-group">
+      <select id="theme-select" title="主题"></select>
+      <select id="layout-select" title="布局模式">
+        <option value="tree">树形布局</option>
+        <option value="free">自由布局</option>
+      </select>
+      <select id="direction-select" title="树形布局方向" class="hide-mobile">
+        <option value="right">右向</option>
+        <option value="balanced">左右平衡</option>
+        <option value="left">左向</option>
+      </select>
+      <input type="color" id="bg-color" title="画布背景色" value="#f4f7fb">
+      <button id="btn-bg-reset" title="恢复主题背景色">↺</button>
+    </div>
+    <div class="tb-group">
+      <button id="btn-expand-all" title="全部展开">全部展开</button>
+      <button id="btn-collapse-all" title="全部收起">全部收起</button>
+    </div>
+    <div class="tb-group">
+      <button id="btn-search" title="搜索 (Ctrl+F)">搜索</button>
+      <button id="btn-outline" title="大纲视图">大纲</button>
+      <button id="btn-notes" title="节点备注">备注</button>
+    </div>
+    <div class="tb-group">
+      <button id="btn-export" class="primary" title="导出 PNG/JPEG/SVG/PDF">导出</button>
+      <button id="btn-help" title="快捷键帮助 (?)">?</button>
+    </div>
+  </header>
+
+  <div id="main">
+    <aside id="outline-panel" class="panel left" style="display:none">
+      <div class="panel-head"><span>大纲</span><span class="panel-close">✕</span></div>
+      <div class="panel-body"></div>
+    </aside>
+
+    <div id="canvas-wrap">
+      <svg id="canvas"></svg>
+      <div id="edit-overlay"><textarea maxlength="200" rows="1"></textarea></div>
+      <div id="search-bar">
+        <input type="text" placeholder="搜索节点…">
+        <span id="search-count"></span>
+        <button data-act="prev" title="上一个 (Enter)">↑</button>
+        <button data-act="next" title="下一个">↓</button>
+        <button data-act="close" title="关闭 (Esc)">✕</button>
+      </div>
+      <div id="ctx-menu"></div>
+      <div id="zoom-ui">
+        <button id="btn-zoom-in" title="放大">+</button>
+        <button id="btn-zoom-out" title="缩小">−</button>
+        <button id="btn-zoom-fit" title="适应画布">⛶</button>
+      </div>
+    </div>
+
+    <aside id="notes-panel" class="panel right" style="display:none">
+      <div class="panel-head"><span>备注</span><span class="panel-close">✕</span></div>
+      <div id="notes-title"></div>
+      <div id="notes-hint">选中一个节点后在此编辑备注</div>
+      <textarea style="display:none" placeholder="在此输入该节点的备注内容…"></textarea>
+    </aside>
+  </div>
+
+  <div id="toasts"></div>
+  <input type="file" id="file-input" accept=".json,application/json" style="display:none">
+  <input type="file" id="image-input" accept="image/*" style="display:none">
+
+  <script src="js/model.js"></script>
+  <script src="js/math.js"></script>
+  <script src="js/layout.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/outline.js"></script>
+  <script src="js/notes.js"></script>
+  <script src="js/markdown.js"></script>
+  <script src="js/exporter.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

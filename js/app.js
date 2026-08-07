@@ -1,0 +1,365 @@
+(function () {
+  "use strict";
+
+  const M = (window.MM = window.MM || {});
+
+  const THEMES = [
+    { id: "blue", name: "\u7ecf\u5178\u84dd", dot: "#2e6fb0" },
+    { id: "green", name: "\u6e05\u65b0\u7eff", dot: "#3a9d5c" },
+    { id: "sunset", name: "\u65e5\u843d\u6696\u8272", dot: "#e07b39" },
+    { id: "night", name: "\u6df1\u8272\u591c\u95f4", dot: "#1c2230" },
+    { id: "mono", name: "\u7b80\u7ea6\u9ed1\u767d", dot: "#222222" },
+    { id: "morandi", name: "\u83ab\u5170\u8fea", dot: "#8f7e6d" }
+  ];
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  function toast(msg, warn) {
+    const box = $("toasts");
+    const el = document.createElement("div");
+    el.className = "toast" + (warn ? " warn" : "");
+    el.textContent = msg;
+    box.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("show"));
+    setTimeout(() => {
+      el.classList.remove("show");
+      setTimeout(() => el.remove(), 300);
+    }, 2600);
+  }
+
+  function modal(opts) {
+    const mask = document.createElement("div");
+    mask.className = "modal-mask";
+    const m = document.createElement("div");
+    m.className = "modal";
+    m.innerHTML = "<h3></h3><div class='m-body'></div>";
+    m.querySelector("h3").textContent = opts.title || "";
+    m.querySelector(".m-body").innerHTML = opts.body || "";
+    const actions = document.createElement("div");
+    actions.className = "m-actions";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = opts.cancel || "\u53d6\u6d88";
+    const okBtn = document.createElement("button");
+    okBtn.className = "primary";
+    okBtn.textContent = opts.ok || "\u786e\u5b9a";
+    actions.appendChild(cancelBtn);
+    actions.appendChild(okBtn);
+    m.appendChild(actions);
+    mask.appendChild(m);
+    document.body.appendChild(mask);
+
+    function close() {
+      mask.remove();
+      document.removeEventListener("keydown", onKey);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") close();
+    }
+    document.addEventListener("keydown", onKey);
+    cancelBtn.addEventListener("click", close);
+    okBtn.addEventListener("click", () => {
+      try {
+        const r = opts.onOk && opts.onOk(m);
+        if (r !== false) close();
+      } catch (err) { /* keep open */ }
+    });
+    return { el: m, close };
+  }
+
+  function showHelp() {
+    const rows = [
+      ["F2 / \u53cc\u51fb", "\u7f16\u8f91\u8282\u70b9\u6587\u5b57"],
+      ["Tab", "\u6dfb\u52a0\u5b50\u8282\u70b9"],
+      ["Enter", "\u6dfb\u52a0\u5144\u5f1f\u8282\u70b9"],
+      ["Delete", "\u5220\u9664\u8282\u70b9\uff08\u542b\u5b50\u6811\uff09"],
+      ["\u7a7a\u683c", "\u6536\u8d77 / \u5c55\u5f00\u5f53\u524d\u8282\u70b9"],
+      ["[ / ]", "\u6536\u8d77 / \u5c55\u5f00\u5f53\u524d\u8282\u70b9"],
+      ["Ctrl+Z / Ctrl+Shift+Z", "\u64a4\u9500 / \u91cd\u505a"],
+      ["Ctrl+C / X / V", "\u590d\u5236 / \u526a\u5207 / \u7c98\u8d34\u8282\u70b9\u5b50\u6811"],
+      ["Ctrl+A", "\u5168\u9009\u53ef\u89c1\u8282\u70b9"],
+      ["Ctrl+F", "\u641c\u7d22\u8282\u70b9"],
+      ["Shift/Ctrl+\u70b9\u51fb\u8282\u70b9", "\u52a0\u9009 / \u51cf\u9009\u8282\u70b9"],
+      ["Shift/Ctrl+\u62d6\u52a8\u7a7a\u767d\u533a", "\u6846\u9009\u591a\u4e2a\u8282\u70b9"],
+      ["\u62d6\u52a8\u8282\u70b9\u5230\u76ee\u6807", "\u8c03\u6574\u7236\u5b50\u5173\u7cfb\uff08\u6811\u5f62\u6a21\u5f0f\uff09"],
+      ["\u6eda\u8f6e / \u53cc\u6307\u7f29\u653e", "\u7f29\u653e\u753b\u5e03"],
+      ["\u62d6\u52a8\u7a7a\u767d\u533a\u57df", "\u5e73\u79fb\u753b\u5e03"],
+      ["\u53f3\u952e / \u957f\u6309", "\u67e5\u770b\u8282\u70b9\u64cd\u4f5c\u83dc\u5355"],
+      ["\u53f3\u952e\u8282\u70b9 \u2192 \u5efa\u7acb\u5173\u8054", "\u70b9\u51fb\u53e6\u4e00\u4e2a\u8282\u70b9\u5b8c\u6210\u8fde\u7ebf"],
+      ["\u53f3\u952e\u5173\u8054\u7ebf", "\u7f16\u8f91\u6ce8\u91ca / \u5220\u9664 / \u53cd\u8f6c\u65b9\u5411"],
+      ["Esc", "\u53d6\u6d88\u7f16\u8f91 / \u53d6\u6d88\u8fde\u7ebf / \u5173\u95ed\u5bf9\u8bdd\u6846"]
+    ];
+    const html = "<table class='shortcuts'>" + rows.map((r) => "<tr><td><kbd>" + r[0] + "</kbd></td><td>" + r[1] + "</td></tr>").join("") + "</table>";
+    modal({ title: "\u5feb\u6377\u952e\u8bf4\u660e", body: html, ok: "\u5173\u95ed" });
+  }
+
+  function showNewDialog() {
+    const dlg = modal({
+      title: "\u65b0\u5efa\u8111\u56fe",
+      body: "<div class='m-hint'>\u5c06\u66ff\u6362\u5f53\u524d\u8111\u56fe\u5185\u5bb9\uff0c\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002</div>" +
+        "<div class='m-row'><button class='m-option' id='new-sample'>\u793a\u4f8b\u6a21\u677f\uff08\u63a8\u8350\uff09</button></div>" +
+        "<div class='m-row'><button class='m-option' id='new-blank'>\u7a7a\u767d\u6a21\u677f\uff08\u4ec5\u6839\u8282\u70b9\uff09</button></div>",
+      ok: "\u53d6\u6d88"
+    });
+    dlg.el.querySelector("#new-sample").addEventListener("click", () => {
+      dlg.close();
+      M.Model.change(() => M.Model.replaceRoot(M.Model.sampleRoot()));
+      M.Render.fit();
+    });
+    dlg.el.querySelector("#new-blank").addEventListener("click", () => {
+      dlg.close();
+      const root = M.Model.createNode("\u6839\u8282\u70b9");
+      M.Model.change(() => M.Model.replaceRoot(root));
+      M.Render.fit();
+    });
+  }
+
+  function showImportDialog() {
+    const dlg = modal({
+      title: "\u5bfc\u5165",
+      body: "<div class='m-row'><button class='m-option' id='imp-json'>\u4ece JSON \u6587\u4ef6\u5bfc\u5165</button></div>" +
+        "<div class='m-row'><button class='m-option' id='imp-md'>\u4ece Markdown \u6587\u672c\u5bfc\u5165</button></div>",
+      ok: "\u5173\u95ed"
+    });
+    dlg.el.querySelector("#imp-json").addEventListener("click", () => {
+      dlg.close();
+      $("file-input").click();
+    });
+    dlg.el.querySelector("#imp-md").addEventListener("click", () => {
+      dlg.close();
+      showMarkdownDialog();
+    });
+  }
+
+  function showExportDialog() {
+    const body = "" +
+      "<div class='m-row'><label>\u683c\u5f0f</label><select id='ex-fmt'><option>PNG</option><option>JPEG</option><option>SVG</option><option>PDF</option><option value='markdown'>Markdown \u5927\u7eb2</option><option value='json'>JSON \u5907\u4efd</option></select></div>" +
+      "<div class='m-row' id='ex-scale-row'><label>\u5206\u8fa8\u7387</label><select id='ex-scale'><option value='1'>1x</option><option value='2' selected>2x\uff08\u63a8\u8350\uff09</option><option value='3'>3x</option></select></div>" +
+      "<div class='m-row' id='ex-bg-row'><label>\u80cc\u666f</label><select id='ex-bg'><option value='theme'>\u4e3b\u9898\u80cc\u666f</option><option value='white'>\u767d\u8272</option><option value='transparent'>\u900f\u660e\uff08PNG/SVG\uff09</option></select></div>" +
+      "<div class='m-row' id='ex-multi-row' style='display:none'><label><input type='checkbox' id='ex-multi'> A4 \u5206\u9875\u6253\u5370\u7248\uff08\u591a\u9875\uff09</label></div>" +
+      "<div class='m-hint'>\u56fe\u7247/\u6587\u6863\u5bfc\u51fa\u6548\u679c\u8ddf\u968f\u5f53\u524d\u4e3b\u9898\u4e0e\u5c55\u5f00\u72b6\u6001\uff1b\u8fdc\u7a0b\u56fe\u7247\u4e0d\u80fd\u4fdd\u8bc1\u8fdb\u5165\u5bfc\u51fa\u6587\u4ef6\u3002</div>";
+    modal({
+      title: "\u5bfc\u51fa",
+      body,
+      ok: "\u5bfc\u51fa",
+      onOk: (root) => {
+        const fmt = root.querySelector("#ex-fmt").value.toLowerCase();
+        if (fmt === "markdown") { exportMarkdown(); return true; }
+        if (fmt === "json") { M.Storage.exportJSON(); return true; }
+        const scale = parseInt(root.querySelector("#ex-scale").value, 10);
+        const bg = root.querySelector("#ex-bg").value;
+        const multi = root.querySelector("#ex-multi").checked;
+        const opts = { scale, bg, multipage: multi };
+        if (fmt === "png") M.Exporter.exportPNG(opts);
+        else if (fmt === "jpeg") M.Exporter.exportJPEG(opts);
+        else if (fmt === "svg") M.Exporter.exportSVG(opts);
+        else M.Exporter.exportPDF(opts);
+        return true;
+      }
+    });
+    const m = document.querySelector(".modal");
+    const fmtSelEl = m.querySelector("#ex-fmt");
+    const scaleRow = m.querySelector("#ex-scale-row");
+    const bgRow = m.querySelector("#ex-bg-row");
+    const multiRow = m.querySelector("#ex-multi-row");
+    fmtSelEl.addEventListener("change", () => {
+      const v = fmtSelEl.value;
+      const isImage = v === "PNG" || v === "JPEG" || v === "SVG" || v === "PDF";
+      scaleRow.style.display = isImage ? "flex" : "none";
+      bgRow.style.display = isImage ? "flex" : "none";
+      multiRow.style.display = v === "PDF" ? "flex" : "none";
+    });
+  }
+
+  function showMarkdownDialog() {
+    modal({
+      title: "\u4ece Markdown \u5bfc\u5165",
+      body: "<textarea id='md-input' placeholder='\u4f8b\u5982\uff1a\n- \u4e2d\u5fc3\u4e3b\u9898\n  - \u5206\u652f\u4e00\n    - \u5b50\u8282\u70b9\n  - \u5206\u652f\u4e8c\n\n\u652f\u6301\u7f29\u8fdb\u5217\u8868\uff08- * + \u6570\u5b57\uff09\u3001# \u6807\u9898\u3001[\\u6587\\u5b57](\\u94fe\\u63a5) \u3001![\\u56fe](\\u5730\\u5740)\u3001> \\u5907\u6ce8'></textarea>",
+      ok: "\u5bfc\u5165\u5e76\u8986\u76d6\u5f53\u524d\u8111\u56fe",
+      onOk: (root) => {
+        const text = root.querySelector("#md-input").value;
+        if (!text.trim()) return false;
+        const parsed = M.Markdown.parse(text);
+        M.Model.change(() => M.Model.replaceRoot(parsed));
+        M.Render.fit();
+        M.App.toast("\u5dfc\u5165\u6210\u529f\uff0cCtrl+Z \u53ef\u64a4\u9500");
+        return true;
+      }
+    });
+  }
+
+  function exportMarkdown() {
+    const text = M.Markdown.serialize(M.Model.root);
+    const blob = new Blob([text], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "mindmap.md";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    toast("\u5df2\u5bfc\u51fa Markdown");
+  }
+
+  function applyTheme(themeId) {
+    document.documentElement.dataset.theme = themeId;
+    M.Model.setSettings({ theme: themeId });
+    applyBg();
+    M.Layout.layoutAll();
+    M.Storage.save();
+    M.Render.render();
+  }
+
+  function applyBg() {
+    const bg = M.Model.settings.bg;
+    const root = document.documentElement;
+    const body = document.body;
+    if (bg) {
+      root.style.setProperty("--canvas-bg", bg);
+      body.style.setProperty("--canvas-bg", bg);
+    } else {
+      root.style.removeProperty("--canvas-bg");
+      body.style.removeProperty("--canvas-bg");
+    }
+  }
+
+  function wireToolbar() {
+    $("btn-new").addEventListener("click", showNewDialog);
+    $("btn-undo").addEventListener("click", () => M.Model.undo());
+    $("btn-redo").addEventListener("click", () => M.Model.redo());
+    $("btn-import").addEventListener("click", showImportDialog);
+    $("file-input").addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (f) M.Storage.importJSON(f);
+      e.target.value = "";
+    });
+
+    const themeSel = $("theme-select");
+    for (const t of THEMES) {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.name;
+      themeSel.appendChild(opt);
+    }
+    themeSel.addEventListener("change", () => applyTheme(themeSel.value));
+
+    const layoutSel = $("layout-select");
+    layoutSel.addEventListener("change", () => {
+      if (layoutSel.value === "free") M.Layout.initFreePositions();
+      M.Model.setSettings({ layoutMode: layoutSel.value });
+      M.Layout.layoutAll();
+      M.Storage.save();
+      M.Render.render();
+      M.Render.fit();
+    });
+
+    const dirSel = $("direction-select");
+    dirSel.addEventListener("change", () => {
+      M.Model.setSettings({ direction: dirSel.value });
+      M.Layout.layoutAll();
+      M.Storage.save();
+      M.Render.render();
+      M.Render.fit();
+    });
+
+    const bgInput = $("bg-color");
+    bgInput.addEventListener("input", () => {
+      M.Model.setSettings({ bg: bgInput.value });
+      applyBg();
+      M.Storage.save();
+      M.Render.render();
+    });
+    $("btn-bg-reset").addEventListener("click", () => {
+      M.Model.setSettings({ bg: "" });
+      applyBg();
+      bgInput.value = getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim();
+      M.Storage.save();
+      M.Render.render();
+    });
+
+    $("btn-expand-all").addEventListener("click", () => {
+      M.Model.change(() => {
+        M.Model.allNodes(M.Model.root).forEach((n) => { n.collapsed = false; });
+      });
+      M.Render.fit();
+    });
+    $("btn-collapse-all").addEventListener("click", () => {
+      M.Model.change(() => {
+        M.Model.allNodes(M.Model.root).forEach((n) => { if (n !== M.Model.root) n.collapsed = true; });
+      });
+      M.Render.fit();
+    });
+
+    $("btn-search").addEventListener("click", () => M.Search.open());
+    $("btn-outline").addEventListener("click", () => {
+      const v = !M.Outline.isOpen();
+      M.Outline.setOpen(v);
+      $("btn-outline").classList.toggle("primary", v);
+    });
+    $("btn-notes").addEventListener("click", () => {
+      const v = !M.Notes.isOpen();
+      M.Notes.setOpen(v);
+      $("btn-notes").classList.toggle("primary", v);
+    });
+
+    $("btn-export").addEventListener("click", showExportDialog);
+    $("btn-help").addEventListener("click", showHelp);
+
+    $("btn-zoom-in").addEventListener("click", () => M.Editor.zoomBy(1.25));
+    $("btn-zoom-out").addEventListener("click", () => M.Editor.zoomBy(0.8));
+    $("btn-zoom-fit").addEventListener("click", () => M.Render.fit());
+  }
+
+  function onModelChange() {
+    M.Layout.layoutAll();
+    M.Render.render();
+    M.Outline.refresh();
+    M.Notes.refresh();
+    M.Storage.save();
+  }
+
+  function syncControls() {
+    const s = M.Model.settings;
+    document.documentElement.dataset.theme = s.theme;
+    applyBg();
+    $("theme-select").value = s.theme;
+    $("layout-select").value = s.layoutMode || "tree";
+    $("direction-select").value = s.direction || "right";
+    $("bg-color").value = s.bg || getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim();
+  }
+
+  function init() {
+    M.Render.init($("canvas"));
+    M.Search.init();
+    M.Outline.init();
+    M.Notes.init();
+    M.Editor.init($("canvas-wrap"), $("canvas"));
+    wireToolbar();
+
+    M.Storage.load();
+    syncControls();
+    M.Layout.layoutAll();
+    M.Render.render();
+    M.Render.fit();
+
+    M.Model.onChange = onModelChange;
+
+    window.addEventListener("pagehide", () => M.Storage.flush());
+
+    if (location.protocol === "http:" || location.protocol === "https:") {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+
+  M.App = { init, toast, modal, showHelp };
+})();

@@ -1,0 +1,14 @@
+{
+  "name": "脑图工具",
+  "short_name": "脑图",
+  "description": "零依赖思维导图工具：创建编辑、多主题、导出 PNG/JPEG/SVG/PDF",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#2e6fb0",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
