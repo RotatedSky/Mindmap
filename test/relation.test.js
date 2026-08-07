@@ -1,0 +1,133 @@
+"use strict";
+
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const { setup } = require("./helpers/shim");
+
+const THEME = { rootFs: 16, nodeFs: 14, fontFamily: "sans-serif" };
+
+function fresh() {
+  return setup(["model", "math", "layout", "render"]);
+}
+
+function siblings(mm) {
+  const root = mm.Model.createNode("root");
+  const a = mm.Model.addChild(root, "Alpha");
+  const b = mm.Model.addChild(root, "Beta");
+  mm.Model.addChild(b, "Beta1");
+  mm.Model.replaceRoot(root);
+  return { root, a, b };
+}
+
+test("兄弟关系：端点位于无上级连线的一侧（右布局）", () => {
+  const { mm } = fresh();
+  const { root, a, b } = siblings(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const rel = mm.Model.addRelation(a.id, b.id);
+  const geo = mm.Render.relationGeometry(rel);
+  assert.ok(geo);
+  assert.equal(geo.pa.x, a.x + a.w / 2, "A 端点应在右侧边缘（父在左侧）");
+  assert.equal(geo.pa.y, a.y);
+  assert.equal(geo.pb.x, b.x + b.w / 2, "B 端点应在右侧边缘（父在左侧）");
+  assert.equal(geo.pb.y, b.y);
+});
+
+test("根节点作为端点：无父节点时朝向对方节点", () => {
+  const { mm } = fresh();
+  const { root, a } = siblings(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const rel = mm.Model.addRelation(root.id, a.id);
+  const geo = mm.Render.relationGeometry(rel);
+  assert.ok(geo);
+  assert.equal(geo.pa.x, root.x + root.w / 2, "根端点应在右边缘");
+  const t = (root.w / 2) / (a.x - root.x);
+  assert.equal(geo.pa.y, root.y + t * (a.y - root.y), "沿朝 A 中心的射线出边");
+  assert.equal(geo.pb.x, a.x + a.w / 2, "A 端点仍在自由侧（右边缘）");
+  assert.equal(geo.pb.y, a.y);
+});
+
+test("balanced 左侧子节点：端点位于左边缘", () => {
+  const { mm } = fresh();
+  const root = mm.Model.createNode("root");
+  const kids = [];
+  for (let i = 0; i < 3; i++) kids.push(mm.Model.addChild(root, "K" + i));
+  mm.Model.replaceRoot(root);
+  mm.Layout.treeLayout(root, "balanced", THEME);
+  assert.deepEqual(kids.map((k) => k.side), [1, -1, 1]);
+  const [a, b] = kids;
+  const rel = mm.Model.addRelation(a.id, b.id);
+  const geo = mm.Render.relationGeometry(rel);
+  assert.ok(geo);
+  assert.equal(geo.pa.x, a.x + a.w / 2, "右侧子节点端点应在右边缘");
+  assert.equal(geo.pb.x, b.x - b.w / 2, "左侧子节点端点应在左边缘");
+  assert.equal(geo.pb.y, b.y);
+});
+
+test("fromPt/toPt：端点落在节点边框上", () => {
+  const { mm } = fresh();
+  const { root, a, b } = siblings(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const rel = mm.Model.addRelation(a.id, b.id);
+  rel.fromPt = { x: 0, y: -100 };
+  rel.toPt = { x: 100, y: 0 };
+  const geo = mm.Render.relationGeometry(rel);
+  assert.ok(geo);
+  assert.equal(geo.pa.x, a.x, "fromPt 垂直方向 → 顶部边缘中点");
+  assert.equal(geo.pa.y, a.y - a.h / 2);
+  assert.equal(geo.pb.x, b.x + b.w / 2, "toPt 水平方向 → 右侧边缘中点");
+  assert.equal(geo.pb.y, b.y);
+});
+
+test("端点偏移越界或在节点内部时钳制到边框", () => {
+  const { mm } = fresh();
+  const { root, a, b } = siblings(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const rel = mm.Model.addRelation(a.id, b.id);
+  rel.fromPt = { x: 1000, y: 1000 };
+  let geo = mm.Render.relationGeometry(rel);
+  assert.equal(geo.pa.x, a.x + a.w / 2, "越界 → 右下角");
+  assert.equal(geo.pa.y, a.y + a.h / 2);
+  rel.fromPt = { x: 2, y: 2 };
+  geo = mm.Render.relationGeometry(rel);
+  assert.equal(geo.pa.y, a.y + a.h / 2, "内部点推到最近边（底边）");
+  assert.equal(geo.pa.x, a.x + 2);
+});
+
+test("override 预览端点同样钳制在边框", () => {
+  const { mm } = fresh();
+  const { root, a, b } = siblings(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const rel = mm.Model.addRelation(a.id, b.id);
+  const geo = mm.Render.relationGeometry(rel, THEME, { from: { x: 99999, y: -99999 } });
+  assert.ok(geo);
+  assert.equal(geo.pa.x, a.x + a.w / 2);
+  assert.equal(geo.pa.y, a.y - a.h / 2);
+  assert.equal(geo.pb.x, b.x + b.w / 2, "未覆盖的 to 端点仍为默认锚点");
+});
+
+test("fromPt 随序列化保存，旧数据无 fromPt 时用默认锚点", () => {
+  const { mm } = fresh();
+  const { root, a, b } = siblings(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const rel = mm.Model.addRelation(a.id, b.id);
+  rel.fromPt = { x: -3, y: 6 };
+  const data = JSON.parse(JSON.stringify(mm.Model.serialize()));
+
+  const mm2 = fresh().mm;
+  mm2.Model.deserialize(data);
+  mm2.Layout.treeLayout(mm2.Model.root, "right", THEME);
+  const rel2 = mm2.Model.relations[0];
+  const a2 = mm2.Model.find(mm2.Model.root, rel2.from);
+  const geo2 = mm2.Render.relationGeometry(rel2);
+  assert.equal(geo2.pa.x, a2.x - 3, "fromPt 经序列化保留");
+  assert.equal(geo2.pa.y, a2.y + a2.h / 2, "(-3,6) 钳制到底边");
+
+  delete data.relations[0].fromPt;
+  const mm3 = fresh().mm;
+  mm3.Model.deserialize(data);
+  mm3.Layout.treeLayout(mm3.Model.root, "right", THEME);
+  const rel3 = mm3.Model.relations[0];
+  const a3 = mm3.Model.find(mm3.Model.root, rel3.from);
+  const geo3 = mm3.Render.relationGeometry(rel3);
+  assert.equal(geo3.pa.x, a3.x + a3.w / 2, "无 fromPt → 默认自由侧锚点");
+});

@@ -101,6 +101,16 @@ python -m http.server 8080
 | 右键关联线 | 编辑注释 / 删除 / 反转方向 |
 | `?` | 快捷键帮助 |
 
+## 测试
+
+使用 Node.js 内置测试运行器（需 Node ≥ 18，零依赖）：
+
+```bash
+npm test
+```
+
+覆盖数据模型（增删改 / 撤销重做 / 剪贴板 / 关联 / 分组 / 序列化）、布局（换行 / 截断 / 树形与自由布局）、LaTeX 解析、Markdown 导入导出、搜索与存储。测试通过 VM 沙箱模拟浏览器环境运行（`test/helpers/shim.js`）。
+
 ## 项目结构
 
 ```
@@ -122,5 +132,8 @@ python -m http.server 8080
 │   ├── exporter.js       PNG/JPEG/SVG/PDF 导出（原生 PDF 写入）
 │   ├── storage.js        localStorage + JSON 存取
 │   └── app.js            工具栏 / 对话框 / 初始化
+├── test/                 Node 测试（node --test）
+│   ├── helpers/shim.js   浏览器环境沙箱
+│   └── *.test.js         各模块测试
 └── tools/gen-icons.js    图标生成脚本
 ```

@@ -96,9 +96,11 @@
     }, grp);
 
     if (node.frame) {
+      const bb = footprintOf(node);
       svgEl("rect", {
         class: "node-frame",
-        x: -w / 2 - 6, y: -h / 2 - 6, width: w + 12, height: h + 12,
+        x: bb.minX - node.x - 6, y: bb.minY - node.y - 6,
+        width: bb.maxX - bb.minX + 12, height: bb.maxY - bb.minY + 12,
         rx: r + 4, fill: "none", stroke: theme.accent, "stroke-width": 1.5,
         "stroke-dasharray": "7 5", "pointer-events": "none"
       }, grp);
@@ -244,15 +246,42 @@
     return { x: fx + t * dx, y: fy + t * dy };
   }
 
+  function borderPoint(n, raw) {
+    const hw = n.w / 2, hh = n.h / 2;
+    const x = Math.max(-hw, Math.min(hw, raw.x));
+    const y = Math.max(-hh, Math.min(hh, raw.y));
+    const bx = hw - Math.abs(x), by = hh - Math.abs(y);
+    if (bx < by) return { x: n.x + (x >= 0 ? hw : -hw), y: n.y + y };
+    return { x: n.x + x, y: n.y + (y >= 0 ? hh : -hh) };
+  }
+
+  function freeSideAnchor(n, other) {
+    const parent = M.Model.findParent(M.Model.root, n.id);
+    if (!parent) return edgePoint(n, n.x, n.y, other.x, other.y);
+    const dir = parent.x < n.x ? 1 : -1;
+    return { x: n.x + dir * n.w / 2, y: n.y };
+  }
+
   function relationGeometry(rel, theme, override) {
     theme = theme || M.Theme.get();
     const a = M.Model.find(M.Model.root, rel.from);
     const b = M.Model.find(M.Model.root, rel.to);
     if (!a || !b) return null;
-    const pa = edgePoint(a, a.x, a.y, b.x, b.y);
-    const pb = edgePoint(b, b.x, b.y, a.x, a.y);
-    if (override && override.from) { pa.x = override.from.x; pa.y = override.from.y; }
-    if (override && override.to) { pb.x = override.to.x; pb.y = override.to.y; }
+    let pa, pb;
+    if (override && override.from) {
+      pa = borderPoint(a, { x: override.from.x - a.x, y: override.from.y - a.y });
+    } else if (rel.fromPt) {
+      pa = borderPoint(a, rel.fromPt);
+    } else {
+      pa = freeSideAnchor(a, b);
+    }
+    if (override && override.to) {
+      pb = borderPoint(b, { x: override.to.x - b.x, y: override.to.y - b.y });
+    } else if (rel.toPt) {
+      pb = borderPoint(b, rel.toPt);
+    } else {
+      pb = freeSideAnchor(b, a);
+    }
     let dx = pb.x - pa.x, dy = pb.y - pa.y;
     let dist = Math.hypot(dx, dy);
     if (dist < 1) { dx = 1; dy = 0; dist = 1; }
@@ -295,10 +324,10 @@
     };
   }
 
-  function drawRelation(g, rel, theme) {
+  function drawRelation(g, rel, theme, plain) {
     const geo = relationGeometry(rel, theme);
     if (!geo) return;
-    const selected = M.Editor && M.Editor.selectedRelationId() === rel.id;
+    const selected = !plain && M.Editor && M.Editor.selectedRelationId() === rel.id;
     const color = rel.color || theme.accent;
 
     svgEl("path", {
@@ -312,11 +341,13 @@
       d: geo.arrow, fill: color, stroke: "none"
     }, g);
 
-    svgEl("path", {
-      class: "rel-hit", "data-id": rel.id,
-      d: geo.d, fill: "none", stroke: "transparent",
-      "stroke-width": 16, "pointer-events": "stroke", cursor: "grab"
-    }, g);
+    if (!plain) {
+      svgEl("path", {
+        class: "rel-hit", "data-id": rel.id,
+        d: geo.d, fill: "none", stroke: "transparent",
+        "stroke-width": 16, "pointer-events": "stroke", cursor: "grab"
+      }, g);
+    }
 
     if (selected) {
       const handle = (x, y, pt) => {
@@ -327,6 +358,8 @@
         svgEl("circle", { r: 6.5, fill: theme.foldBg, stroke: color, "stroke-width": 2 }, hg);
         svgEl("circle", { r: 2.5, fill: color, "pointer-events": "none" }, hg);
       };
+      handle(geo.pa.x, geo.pa.y, "from");
+      handle(geo.pb.x, geo.pb.y, "to");
       handle(geo.c1.x, geo.c1.y, "1");
       handle(geo.c2.x, geo.c2.y, "2");
     }
@@ -350,26 +383,44 @@
     }
   }
 
+  function footprintOf(node) {
+    let minX = node.x - node.w / 2, minY = node.y - node.h / 2;
+    let maxX = node.x + node.w / 2, maxY = node.y + node.h / 2;
+    if (!node.collapsed) {
+      for (const c of node.children) {
+        const bb = footprintOf(c);
+        minX = Math.min(minX, bb.minX);
+        minY = Math.min(minY, bb.minY);
+        maxX = Math.max(maxX, bb.maxX);
+        maxY = Math.max(maxY, bb.maxY);
+      }
+    }
+    return { minX, minY, maxX, maxY };
+  }
+
   function frameGeometry(f, visibleIds) {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let any = false;
     for (const id of f.nodes) {
       if (!visibleIds.has(id)) continue;
       const n = M.Model.find(M.Model.root, id);
       if (!n) continue;
-      minX = Math.min(minX, n.x - n.w / 2);
-      minY = Math.min(minY, n.y - n.h / 2);
-      maxX = Math.max(maxX, n.x + n.w / 2);
-      maxY = Math.max(maxY, n.y + n.h / 2);
+      const bb = footprintOf(n);
+      minX = Math.min(minX, bb.minX);
+      minY = Math.min(minY, bb.minY);
+      maxX = Math.max(maxX, bb.maxX);
+      maxY = Math.max(maxY, bb.maxY);
+      any = true;
     }
-    if (!isFinite(minX)) return null;
-    const pad = 14;
+    if (!any || !isFinite(minX)) return null;
+    const pad = M.Layout.FRAME_PAD;
     return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
   }
 
-  function drawFrame(f, g, theme, visibleIds) {
+  function drawFrame(f, g, theme, visibleIds, plain) {
     const geo = frameGeometry(f, visibleIds);
     if (!geo) return;
-    const selected = M.Editor && M.Editor.selectedFrameId() === f.id;
+    const selected = !plain && M.Editor && M.Editor.selectedFrameId() === f.id;
     const color = selected ? theme.accent : theme.line;
     svgEl("rect", {
       class: "frame-rect", "data-id": f.id,
@@ -377,12 +428,14 @@
       fill: "none", stroke: color, "stroke-width": selected ? 2.5 : 1.5,
       "stroke-dasharray": "8 5", "pointer-events": "none"
     }, g);
-    svgEl("rect", {
-      class: "frame-hit", "data-id": f.id,
-      x: geo.x, y: geo.y, width: geo.w, height: geo.h, rx: 12,
-      fill: "none", stroke: "transparent", "stroke-width": 14,
-      "pointer-events": "stroke", cursor: "pointer"
-    }, g);
+    if (!plain) {
+      svgEl("rect", {
+        class: "frame-hit", "data-id": f.id,
+        x: geo.x, y: geo.y, width: geo.w, height: geo.h, rx: 12,
+        fill: "none", stroke: "transparent", "stroke-width": 14,
+        "pointer-events": "stroke", cursor: "pointer"
+      }, g);
+    }
     if (f.label) {
       const font = "500 12px " + theme.fontFamily;
       const lw = M.Layout.measureText(f.label, font) + 16;
@@ -502,8 +555,9 @@
     if (lg) lg.setAttribute("transform", "translate(" + geo.labelX + " " + geo.labelY + ")");
     const hs = svg.el.querySelectorAll('g.rel-handle[data-id="' + relId + '"]');
     for (const h of hs) {
-      const cp = h.getAttribute("data-pt") === "2" ? geo.c2 : geo.c1;
-      h.setAttribute("transform", "translate(" + cp.x + " " + cp.y + ")");
+      const pt = h.getAttribute("data-pt");
+      const p = pt === "from" ? geo.pa : pt === "to" ? geo.pb : pt === "2" ? geo.c2 : geo.c1;
+      h.setAttribute("transform", "translate(" + p.x + " " + p.y + ")");
     }
   }
 
@@ -588,10 +642,10 @@
     }
     for (const rel of M.Model.relations) {
       if (vis.has(rel.from) && vis.has(rel.to)) {
-        drawRelation(g, rel, theme);
+        drawRelation(g, rel, theme, true);
       }
     }
-    for (const f of M.Model.frames) drawFrame(g, f, theme, vis);
+    for (const f of M.Model.frames) drawFrame(f, g, theme, vis, true);
     for (const n of visible) buildNode(g, n, theme, {});
     const out = document.createElementNS(NS, "svg");
     out.setAttribute("xmlns", NS);
@@ -607,7 +661,7 @@
     init(el) { svg.el = el; },
     render, renderTreeInto, applySelectionClasses,
     setTransform, worldToScreen, screenToWorld, fit, centerOn,
-    toSVGString, updateFreeDrag, updateRelation, relationGeometry,
+    toSVGString, updateFreeDrag, updateRelation, relationGeometry, frameGeometry, footprintOf,
     get view() { return svg; }
   };
 })();

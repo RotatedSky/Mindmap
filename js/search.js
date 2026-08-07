@@ -94,6 +94,7 @@
     st.order = [];
     input.value = "";
     st.query = "";
+    updateCount();
     M.Render.applySelectionClasses();
   }
 

@@ -198,10 +198,10 @@
     if (idx >= 0) parent.children.splice(idx, 1);
     state.selection.delete(node.id);
     if (state.primary === node.id) state.primary = null;
-    state.relations = state.relations.filter((r) => r.from !== node.id && r.to !== node.id);
+    const subtree = new Set(allNodes(node).map((n) => n.id));
+    state.relations = state.relations.filter((r) => !subtree.has(r.from) && !subtree.has(r.to));
     for (const f of state.frames) {
-      const i = f.nodes.indexOf(node.id);
-      if (i >= 0) f.nodes.splice(i, 1);
+      f.nodes = f.nodes.filter((id) => !subtree.has(id));
     }
     state.frames = state.frames.filter((f) => f.nodes.length > 0);
   }

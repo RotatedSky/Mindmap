@@ -5,6 +5,9 @@
 
   const GAP_X = 72;
   const GAP_Y = 16;
+  const FRAME_PAD = 14;
+  const FRAME_MARGIN = 10;
+  const FRAME_SPACING = 24;
   const PAD_X = 18;
   const PAD_Y = 10;
   const MAX_W = 260;
@@ -157,45 +160,194 @@
     node.h = h;
   }
 
+  function buildFrameIndex(root) {
+    const memberIds = new Map();
+    for (const f of M.Model.frames) {
+      for (const id of f.nodes) {
+        let s = memberIds.get(id);
+        if (!s) { s = new Set(); memberIds.set(id, s); }
+        s.add(f.id);
+      }
+    }
+    const idx = new Map();
+    function walk(n) {
+      let set = null;
+      const own = memberIds.get(n.id);
+      if (own) set = new Set(own);
+      for (const c of n.children) {
+        const cs = walk(c);
+        if (cs) {
+          if (!set) set = new Set();
+          for (const fid of cs) set.add(fid);
+        }
+      }
+      if (set) idx.set(n.id, set);
+      return set;
+    }
+    walk(root);
+    return { idx, own: memberIds };
+  }
+
+  function frameOrder(kids, frameIdx) {
+    if (!frameIdx || !frameIdx.size) return kids.slice();
+    let order = kids.slice();
+    const frameIds = [];
+    for (const k of order) {
+      const s = frameIdx.get(k.id);
+      if (s) for (const fid of s) if (!frameIds.includes(fid)) frameIds.push(fid);
+    }
+    for (let pass = 0; pass <= order.length; pass++) {
+      let moved = false;
+      for (const fid of frameIds) {
+        let min = -1, max = -1;
+        const involved = [];
+        for (let i = 0; i < order.length; i++) {
+          const s = frameIdx.get(order[i].id);
+          if (s && s.has(fid)) {
+            involved.push(i);
+            if (min < 0) min = i;
+            max = i;
+          }
+        }
+        if (min < 0 || max - min === involved.length - 1) continue;
+        const displaced = [];
+        for (let i = min + 1; i < max; i++) {
+          if (!involved.includes(i)) displaced.push(order[i]);
+        }
+        if (!displaced.length) continue;
+        const rest = [];
+        for (const k of order) if (!displaced.includes(k)) rest.push(k);
+        rest.splice(rest.indexOf(order[max]) + 1, 0, ...displaced);
+        order = rest;
+        moved = true;
+      }
+      if (!moved) break;
+    }
+    return order;
+  }
+
+  function boundaryGaps(order, frameIdx) {
+    const minAt = new Map(), maxAt = new Map();
+    for (let i = 0; i < order.length; i++) {
+      const s = frameIdx.get(order[i].id);
+      if (!s) continue;
+      for (const fid of s) {
+        if (!minAt.has(fid)) minAt.set(fid, i);
+        maxAt.set(fid, i);
+      }
+    }
+    const gaps = [];
+    for (let i = 0; i < order.length - 1; i++) {
+      let downOut = 0, upOut = 0, downIn = Infinity, upIn = Infinity;
+      let downHas = false, upHas = false;
+      const a = order[i], b = order[i + 1];
+      const sa = frameIdx.get(a.id);
+      if (sa) for (const fid of sa) {
+        if (maxAt.get(fid) === i) {
+          downHas = true;
+          const o = a.fmBot.get(fid) + FRAME_PAD - a.ownHalf;
+          if (o > 0) downOut = Math.max(downOut, o);
+          else downIn = Math.min(downIn, -o);
+        }
+      }
+      const sb = frameIdx.get(b.id);
+      if (sb) for (const fid of sb) {
+        if (minAt.get(fid) === i + 1) {
+          upHas = true;
+          const o = FRAME_PAD - b.fmTop.get(fid) - b.ownHalf;
+          if (o > 0) upOut = Math.max(upOut, o);
+          else upIn = Math.min(upIn, -o);
+        }
+      }
+      if (downHas && upHas) {
+        if (downIn === Infinity) downIn = 0;
+        if (upIn === Infinity) upIn = 0;
+        gaps.push(Math.max(GAP_Y, FRAME_SPACING + downOut + upOut - downIn - upIn));
+      } else if (downHas) {
+        gaps.push(Math.max(GAP_Y, FRAME_MARGIN + downOut));
+      } else if (upHas) {
+        gaps.push(Math.max(GAP_Y, FRAME_MARGIN + upOut));
+      } else {
+        gaps.push(GAP_Y);
+      }
+    }
+    return gaps;
+  }
+
   function treeLayout(root, direction, theme) {
-    function size(node, depth) {
+    function size(node, depth, frameIdx, own) {
       node.parentKind = depth === 0 ? "root" : "node";
       node.depth = depth;
       nodeSize(node, theme);
       node.subH = node.h;
+      node.fmTop = new Map();
+      node.fmBot = new Map();
       const kids = node.collapsed ? [] : node.children;
-      if (!kids.length) return;
       let total = 0;
-      for (const k of kids) {
-        size(k, depth + 1);
-        total += k.subH;
+      if (kids.length) {
+        for (const k of kids) {
+          size(k, depth + 1, frameIdx, own);
+          total += k.subH;
+        }
+        const order = frameOrder(kids, frameIdx);
+        const gaps = boundaryGaps(order, frameIdx);
+        let cy = -total / 2;
+        for (let i = 0; i < order.length; i++) {
+          const k = order[i];
+          const ky = cy + k.subH / 2;
+          for (const [fid, v] of k.fmTop) {
+            const nv = v + ky;
+            const cur = node.fmTop.get(fid);
+            if (cur === undefined || nv < cur) node.fmTop.set(fid, nv);
+          }
+          for (const [fid, v] of k.fmBot) {
+            const nv = v + ky;
+            const cur = node.fmBot.get(fid);
+            if (cur === undefined || nv > cur) node.fmBot.set(fid, nv);
+          }
+          cy += k.subH + (i < order.length - 1 ? gaps[i] : 0);
+        }
+        for (const g of gaps) total += g;
       }
-      total += GAP_Y * (kids.length - 1);
+      node.ownHalf = Math.max(node.h, total) / 2;
+      const o = own.get(node.id);
+      if (o) {
+        for (const fid of o) {
+          const t = node.fmTop.get(fid);
+          if (t === undefined || -node.ownHalf < t) node.fmTop.set(fid, -node.ownHalf);
+          const b = node.fmBot.get(fid);
+          if (b === undefined || node.ownHalf > b) node.fmBot.set(fid, node.ownHalf);
+        }
+      }
       node.subH = Math.max(node.h, total);
     }
-    function place(node, x, y, depth, childSide) {
+    function place(node, x, y, depth, childSide, frameIdx) {
       node.x = x;
       node.y = y;
       const kids = node.collapsed ? [] : node.children;
       if (!kids.length) return;
+      const order = frameOrder(kids, frameIdx);
       let total = 0;
-      for (const k of kids) total += k.subH;
-      total += GAP_Y * (kids.length - 1);
+      for (const k of order) total += k.subH;
+      const gaps = boundaryGaps(order, frameIdx);
+      for (const g of gaps) total += g;
       let cy = y - total / 2;
-      for (let i = 0; i < kids.length; i++) {
-        const k = kids[i];
+      for (let i = 0; i < order.length; i++) {
+        const k = order[i];
+        const origIdx = kids.indexOf(k);
         const s = (direction === "balanced" && depth === 0)
-          ? (i % 2 === 0 ? 1 : -1)
+          ? (origIdx % 2 === 0 ? 1 : -1)
           : childSide;
         k.side = s;
-        place(k, x + s * (node.w / 2 + GAP_X + k.w / 2), cy + k.subH / 2, depth + 1, s);
-        cy += k.subH + GAP_Y;
+        place(k, x + s * (node.w / 2 + GAP_X + k.w / 2), cy + k.subH / 2, depth + 1, s, frameIdx);
+        cy += k.subH + (i < order.length - 1 ? gaps[i] : 0);
       }
     }
-    size(root, 0);
+    const fi = buildFrameIndex(root);
+    size(root, 0, fi.idx, fi.own);
     const rootSide = direction === "left" ? -1 : 1;
     root.side = rootSide;
-    place(root, 0, 0, 0, rootSide);
+    place(root, 0, 0, 0, rootSide, fi.idx);
     root.x = 0;
     root.y = 0;
   }
@@ -257,7 +409,7 @@
   }
 
   M.Layout = {
-    GAP_X, GAP_Y, IMG_W, IMG_H, IMG_GAP, PAD_X, PAD_Y, MAX_W,
+    GAP_X, GAP_Y, FRAME_PAD, FRAME_MARGIN, FRAME_SPACING, IMG_W, IMG_H, IMG_GAP, PAD_X, PAD_Y, MAX_W,
     layoutAll, treeLayout, freeLayout,
     initFreePositions, bounds, nodeSize,
     truncate, wrapText, wrapParts, splitParts, measureText, fontMetrics

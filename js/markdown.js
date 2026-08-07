@@ -20,7 +20,7 @@
       return { note: content.replace(/^>\s?/, ""), depth };
     }
     const list = /^([-*+]|\d+[.)])\s+/.test(raw);
-    const out = { depth, text: content, link: null, image: null, list };
+    const out = { depth, text: content, link: null, image: null, list, heading: !!hm };
     const imgMatch = content.match(/!\[([^\]]*)\]\(([^)]+)\)/);
     if (imgMatch) {
       out.image = imgMatch[2];
@@ -46,7 +46,7 @@
         last.notes = last.notes ? last.notes + "\n" + item.note : item.note;
         continue;
       }
-      if (!item.list && stack.length > 1) {
+      if (!item.list && !item.heading && stack.length > 1) {
         const prev = stack[stack.length - 1].node;
         prev.text = (prev.text ? prev.text + "\n" : "") + item.text;
         continue;
@@ -64,7 +64,7 @@
       root.text = first.text;
       root.link = first.link;
       root.image = first.image;
-      root.children = first.children;
+      root.children = first.children.concat(root.children.slice(1));
       root.notes = first.notes;
       root.collapsed = false;
     }

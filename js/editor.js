@@ -513,10 +513,19 @@
           const target = hitNodeForRel(w.x, w.y, keep);
           if (target) {
             M.Model.change(() => {
-              if (ed.relDragKind === "from") rel.from = target.id;
-              else rel.to = target.id;
+              if (ed.relDragKind === "from") { rel.from = target.id; delete rel.fromPt; }
+              else { rel.to = target.id; delete rel.toPt; }
             });
             M.App.toast("\u5df2\u91cd\u65b0\u8fde\u63a5\u5173\u8054");
+          } else {
+            const node = M.Model.find(M.Model.root, ed.relDragKind === "from" ? rel.from : rel.to);
+            if (node) {
+              M.Model.record();
+              const pt = { x: w.x - node.x, y: w.y - node.y };
+              if (ed.relDragKind === "from") rel.fromPt = pt;
+              else rel.toPt = pt;
+              M.Model.touch();
+            }
           }
           for (const el of M.Render.view.nodeEls.values()) el.classList.remove("drop-target");
         }
