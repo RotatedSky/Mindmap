@@ -17,6 +17,8 @@
     pinchStart: null,
     editInput: null,
     editingNodeId: null,
+    editKind: "node",
+    editTargetId: null,
     ctxNodeId: null,
     longPressTimer: null,
     isEditing: false,
@@ -175,8 +177,27 @@
       window.open(linkNode.link, "_blank", "noopener");
       return;
     }
+    const noteNode = targetBtn(e, "note-dot");
+    if (noteNode && noteNode.notes) {
+      if (ed.connectFrom) endConnect();
+      ed.selectedFrameId = null;
+      M.Model.selectNode(noteNode, false);
+      M.App.setNotesOpen(true);
+      return;
+    }
     const rel = targetRel(e);
     if (rel) {
+      const labelHit = e.target && e.target.closest ? e.target.closest(".rel-label") : null;
+      if (labelHit) {
+        if (ed.connectFrom) endConnect();
+        selectRelation(rel.id);
+        ed.selectedFrameId = null;
+        ed.mode = "relation-label";
+        ed.dragRelId = rel.id;
+        ed.relLabelStart = { x: e.clientX, y: e.clientY };
+        ed.moved = false;
+        return;
+      }
       if (ed.connectFrom) endConnect();
       selectRelation(rel.id);
       ed.selectedFrameId = null;
@@ -207,6 +228,13 @@
     }
     const frame = targetFrame(e);
     if (frame) {
+      const labelHit = e.target && e.target.closest ? e.target.closest(".frame-label") : null;
+      if (labelHit) {
+        if (ed.connectFrom) endConnect();
+        selectFrame(frame.id);
+        beginFrameLabelEdit(frame);
+        return;
+      }
       if (ed.connectFrom) endConnect();
       selectFrame(frame.id);
       ed.mode = "frame";
@@ -345,6 +373,26 @@
       return;
     }
 
+    if (ed.mode === "relation-label" && ed.dragRelId) {
+      const rel = M.Model.relations.find((r) => r.id === ed.dragRelId);
+      if (!rel) return;
+      const ddx = e.clientX - ed.relLabelStart.x, ddy = e.clientY - ed.relLabelStart.y;
+      if (!ed.moved && Math.hypot(ddx, ddy) < 4) return;
+      if (!ed.moved) {
+        ed.moved = true;
+        ed.svg.setPointerCapture(e.pointerId);
+        M.Model.record();
+      }
+      const rect = ed.svg.getBoundingClientRect();
+      const w = M.Render.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+      const t = nearestLabelT(rel, w.x, w.y);
+      if (t != null) {
+        rel.labelT = t;
+        M.Render.updateRelation(rel.id);
+      }
+      return;
+    }
+
     if (ed.mode === "relation" && ed.dragRelId) {
       const rel = M.Model.relations.find((r) => r.id === ed.dragRelId);
       if (!rel) return;
@@ -449,6 +497,19 @@
     return best;
   }
 
+  function nearestLabelT(rel, wx, wy) {
+    const geo = M.Render.relationGeometry(rel);
+    if (!geo) return null;
+    let bestT = 0.5, bestD = Infinity;
+    for (let i = 0; i <= 64; i++) {
+      const t = i / 64;
+      const p = M.Render.bezierPoint(t, geo.pa, geo.c1, geo.c2, geo.pb);
+      const d = Math.hypot(p.x - wx, p.y - wy);
+      if (d < bestD) { bestD = d; bestT = t; }
+    }
+    return bestT;
+  }
+
   function onPointerUp(e) {
     ed.pointers.delete(e.pointerId);
     clearTimeout(ed.longPressTimer);
@@ -499,6 +560,18 @@
         M.Render.applySelectionClasses();
       }
       ed.mode = null;
+      return;
+    }
+    if (ed.mode === "relation-label") {
+      const rel = ed.dragRelId ? M.Model.relations.find((r) => r.id === ed.dragRelId) : null;
+      ed.mode = null;
+      ed.dragRelId = null;
+      if (rel && ed.moved) {
+        rel.labelT = rel.labelT == null ? 0.5 : rel.labelT;
+        M.Model.touch();
+        return;
+      }
+      if (rel) beginRelLabelEdit(rel);
       return;
     }
     if (ed.mode === "relation") {
@@ -575,18 +648,7 @@
       div.addEventListener("click", (e) => { e.stopPropagation(); hideContextMenu(); fn(); });
       menu.appendChild(div);
     };
-    add("\u270f\u2002\u7f16\u8f91\u6807\u7b7e\u2026", () => {
-      M.App.modal({
-        title: "\u5916\u6846\u6807\u7b7e",
-        body: "<div class='m-row'><label>\u6807\u7b7e\u5185\u5bb9</label><input type='text' id='modal-frame-label' maxlength='30' placeholder='\u4f8b\u5982\uff1a\u7b2c\u4e00\u7ec4\u8282\u70b9' value='" + (frame.label || "") + "'></div>",
-        ok: "\u4fdd\u5b58",
-        onOk: (root) => {
-          const v = root.querySelector("#modal-frame-label").value.trim();
-          M.Model.change(() => M.Model.setFrameLabel(frame.id, v));
-          return true;
-        }
-      });
-    });
+    add("\u270f\u2002\u7f16\u8f91\u6807\u7b7e\u2026", () => beginFrameLabelEdit(frame));
     add("\ud83d\uddd1\u2002\u5220\u9664\u5916\u6846", () => {
       M.Model.change(() => {
         M.Model.removeFrame(frame.id);
@@ -613,18 +675,7 @@
       div.addEventListener("click", (e) => { e.stopPropagation(); hideContextMenu(); fn(); });
       menu.appendChild(div);
     };
-    add("\u270f\u2002\u7f16\u8f91\u6ce8\u91ca\u2026", () => {
-      M.App.modal({
-        title: "\u5173\u8054\u6ce8\u91ca",
-        body: "<div class='m-row'><label>\u6ce8\u91ca\u5185\u5bb9</label><input type='text' id='modal-rel-label' maxlength='60' placeholder='\u4f8b\u5982\uff1a\u4f9d\u8d56\u3001\u5173\u8054\u3001\u91cd\u8981' value='" + (rel.label || "") + "'></div>",
-        ok: "\u4fdd\u5b58",
-        onOk: (root) => {
-          const v = root.querySelector("#modal-rel-label").value.trim();
-          M.Model.change(() => M.Model.setRelationLabel(rel.id, v));
-          return true;
-        }
-      });
-    });
+    add("\u270f\u2002\u7f16\u8f91\u6ce8\u91ca\u2026", () => beginRelLabelEdit(rel));
     add("\ud83d\uddd1\u2002\u5220\u9664\u5173\u8054", () => {
       M.Model.change(() => {
         M.Model.removeRelation(rel.id);
@@ -659,6 +710,7 @@
   function beginEdit(node) {
     if (ed.isEditing) return;
     ed.isEditing = true;
+    ed.editKind = "node";
     ed.editingNodeId = node.id;
     M.Model.setPrimary(node.id);
     const input = ed.editInput.querySelector("textarea");
@@ -676,8 +728,69 @@
     input.select();
   }
 
+  function beginLabelEdit(kind, id, text) {
+    if (ed.isEditing) return;
+    ed.isEditing = true;
+    ed.editKind = kind;
+    ed.editTargetId = id;
+    const input = ed.editInput.querySelector("textarea");
+    input.value = text || "";
+    input.style.textAlign = "center";
+    input.rows = 1;
+    input.style.fontSize = "13px";
+    ed.editInput.style.display = "block";
+    repositionEdit();
+    input.focus();
+    input.select();
+  }
+
+  function beginRelLabelEdit(rel) {
+    beginLabelEdit("rel", rel.id, rel.label || "");
+  }
+
+  function beginFrameLabelEdit(frame) {
+    beginLabelEdit("frame", frame.id, frame.label || "");
+  }
+
+  function positionLabelEdit(kind, id) {
+    if (kind === "rel") {
+      const rel = M.Model.relations.find((r) => r.id === id);
+      if (!rel) return;
+      const geo = M.Render.relationGeometry(rel);
+      if (!geo) return;
+      const p = M.Render.worldToScreen(geo.labelX, geo.labelY);
+      const s = M.Render.view.s;
+      const theme = M.Theme.get();
+      const lw = M.Layout.measureText(rel.label || " ", "500 13px " + theme.fontFamily) + 22;
+      ed.editInput.style.left = p.x + "px";
+      ed.editInput.style.top = p.y + "px";
+      ed.editInput.style.width = Math.max(80, lw * s) + "px";
+      ed.editInput.style.height = "30px";
+      return;
+    }
+    if (kind === "frame") {
+      const frame = M.Model.frames.find((f) => f.id === id);
+      if (!frame) return;
+      const visibleIds = new Set(M.Model.visibleNodes(M.Model.root).map((n) => n.id));
+      const geo = M.Render.frameGeometry(frame, visibleIds);
+      if (!geo) return;
+      const p = M.Render.worldToScreen(geo.x + 10, geo.y - 12);
+      const s = M.Render.view.s;
+      const theme = M.Theme.get();
+      const lw = M.Layout.measureText(frame.label || " ", "500 13px " + theme.fontFamily) + 22;
+      ed.editInput.style.left = p.x + "px";
+      ed.editInput.style.top = p.y + "px";
+      ed.editInput.style.width = Math.max(80, lw * s) + "px";
+      ed.editInput.style.height = "30px";
+    }
+  }
+
   function repositionEdit() {
     if (!ed.isEditing) return;
+    if (ed.editKind !== "node") {
+      positionLabelEdit(ed.editKind, ed.editTargetId);
+      return;
+    }
     const node = M.Model.find(M.Model.root, ed.editingNodeId);
     if (!node) return;
     const p = M.Render.worldToScreen(node.x, node.y);
@@ -715,11 +828,30 @@
 
   function commitEdit() {
     if (!ed.isEditing) return;
-    const node = M.Model.find(M.Model.root, ed.editingNodeId);
     const text = currentEditText().trim();
     ed.isEditing = false;
+    const kind = ed.editKind, targetId = ed.editTargetId;
+    const node = ed.editKind === "node" ? M.Model.find(M.Model.root, ed.editingNodeId) : null;
+    ed.editKind = "node";
+    ed.editTargetId = null;
     ed.editingNodeId = null;
     ed.editInput.style.display = "none";
+    if (kind === "rel") {
+      const rel = M.Model.relations.find((r) => r.id === targetId);
+      if (rel && text !== (rel.label || "")) {
+        M.Model.change(() => M.Model.setRelationLabel(rel.id, text));
+      }
+      M.Render.render();
+      return;
+    }
+    if (kind === "frame") {
+      const frame = M.Model.frames.find((f) => f.id === targetId);
+      if (frame && text !== (frame.label || "")) {
+        M.Model.change(() => M.Model.setFrameLabel(frame.id, text));
+      }
+      M.Render.render();
+      return;
+    }
     if (!node) return;
     if (!text) {
       M.Model.change(() => {
@@ -735,6 +867,8 @@
   function cancelEdit() {
     ed.isEditing = false;
     ed.editingNodeId = null;
+    ed.editKind = "node";
+    ed.editTargetId = null;
     ed.editInput.style.display = "none";
   }
 

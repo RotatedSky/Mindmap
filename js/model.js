@@ -42,7 +42,7 @@
       name: "\u793a\u4f8b\u6a21\u677f",
       desc: "\u5168\u529f\u80fd\u5c55\u793a\uff1a\u516c\u5f0f\u3001\u94fe\u63a5\u3001\u5907\u6ce8\u3001\u5916\u6846\u4e0e\u5173\u8054\u7ebf",
       build() {
-        const root = createNode("\u6b22\u8fce\u4f7f\u7528\u8111\u56fe\u5de5\u5177");
+        const root = createNode("\u6b22\u8fce\u4f7f\u7528\u601d\u7eea\u56fe\u5de5\u5177");
         const n1 = createNode("\u5feb\u901f\u4e0a\u624b");
         const n1a = createNode("\u70b9\u51fb\u8282\u70b9\u6216\u6309 F2 \u7f16\u8f91\u6587\u5b57");
         n1a.notes = "\u53cc\u51fb\u8282\u70b9\u4e5f\u53ef\u4ee5\u8fdb\u5165\u7f16\u8f91\uff0c\u652f\u6301\u591a\u884c\u6587\u672c\u3002";
@@ -473,6 +473,12 @@
     rel.label = label ? label : null;
   }
 
+  function setRelationLabelT(id, t) {
+    const rel = state.relations.find((r) => r.id === id);
+    if (!rel) return;
+    rel.labelT = Math.max(0, Math.min(1, t));
+  }
+
   function relationsFor(nodeId) {
     return state.relations.filter((r) => r.from === nodeId || r.to === nodeId);
   }
@@ -600,7 +606,7 @@
     selectNode, clearSelection, setPrimary,
     selectedNodes, primaryNode, setSelection,
     copySelection, pasteInto,
-    addRelation, removeRelation, setRelationLabel, relationsFor, clearRelations,
+    addRelation, removeRelation, setRelationLabel, setRelationLabelT, relationsFor, clearRelations,
     addFrame, removeFrame, setFrameLabel,
     serialize, deserialize, reset, replaceRoot, setSettings
   };

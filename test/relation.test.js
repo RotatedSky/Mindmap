@@ -131,3 +131,50 @@ test("fromPt 随序列化保存，旧数据无 fromPt 时用默认锚点", () =>
   const geo3 = mm3.Render.relationGeometry(rel3);
   assert.equal(geo3.pa.x, a3.x + a3.w / 2, "无 fromPt → 默认自由侧锚点");
 });
+
+test("标签沿贝塞尔曲线定位：labelT 0/0.5/1 对应起点/中点/终点", () => {
+  const { mm } = fresh();
+  const { root, a, b } = siblings(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const rel = mm.Model.addRelation(a.id, b.id);
+  const geo = mm.Render.relationGeometry(rel);
+  assert.ok(geo);
+  assert.equal(geo.labelX, (geo.pa.x + 3 * geo.c1.x + 3 * geo.c2.x + geo.pb.x) / 8, "无 labelT 默认 0.5");
+  assert.equal(geo.labelY, (geo.pa.y + 3 * geo.c1.y + 3 * geo.c2.y + geo.pb.y) / 8);
+
+  rel.labelT = 0;
+  let g = mm.Render.relationGeometry(rel);
+  assert.equal(g.labelX, geo.pa.x);
+  assert.equal(g.labelY, geo.pa.y);
+
+  rel.labelT = 1;
+  g = mm.Render.relationGeometry(rel);
+  assert.equal(g.labelX, geo.pb.x);
+  assert.equal(g.labelY, geo.pb.y);
+
+  rel.labelT = 0.5;
+  g = mm.Render.relationGeometry(rel);
+  assert.equal(g.labelX, (geo.pa.x + 3 * geo.c1.x + 3 * geo.c2.x + geo.pb.x) / 8);
+  assert.equal(g.labelY, (geo.pa.y + 3 * geo.c1.y + 3 * geo.c2.y + geo.pb.y) / 8);
+});
+
+test("bezierPoint 与几何一致，labelT 序列化保留且越界钳制", () => {
+  const { mm } = fresh();
+  const { root, a, b } = siblings(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const rel = mm.Model.addRelation(a.id, b.id);
+  const geo = mm.Render.relationGeometry(rel);
+  const p = mm.Render.bezierPoint(0.5, geo.pa, geo.c1, geo.c2, geo.pb);
+  assert.equal(p.x, geo.labelX);
+  assert.equal(p.y, geo.labelY);
+
+  mm.Model.setRelationLabelT(rel.id, 0.25);
+  assert.equal(rel.labelT, 0.25);
+  mm.Model.setRelationLabelT(rel.id, 5);
+  assert.equal(rel.labelT, 1, "越界钳制到 1");
+
+  const data = JSON.parse(JSON.stringify(mm.Model.serialize()));
+  const mm2 = fresh().mm;
+  mm2.Model.deserialize(data);
+  assert.equal(mm2.Model.relations[0].labelT, 1, "labelT 经序列化保留");
+});

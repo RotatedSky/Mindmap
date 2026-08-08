@@ -2,7 +2,7 @@
   "name": "mindmap",
   "version": "1.0.0",
   "private": true,
-  "description": "零依赖纯前端脑图工具",
+  "description": "零依赖纯前端思绪图工具",
   "scripts": {
     "test": "node --test \"test/**/*.test.js\""
   }

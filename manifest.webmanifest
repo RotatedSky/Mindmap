@@ -1,7 +1,7 @@
 {
-  "name": "脑图工具",
-  "short_name": "脑图",
-  "description": "零依赖思维导图工具：创建编辑、多主题、导出 PNG/JPEG/SVG/PDF",
+  "name": "思绪图工具",
+  "short_name": "思绪图",
+  "description": "零依赖思绪图工具：创建编辑、多主题、导出 PNG/JPEG/SVG/PDF",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

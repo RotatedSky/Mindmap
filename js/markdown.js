@@ -68,7 +68,7 @@
       root.notes = first.notes;
       root.collapsed = false;
     }
-    if (!root.text) root.text = "\u65b0\u8111\u56fe";
+    if (!root.text) root.text = "\u65b0\u601d\u7eea\u56fe";
     return root;
   }
 

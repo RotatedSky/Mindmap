@@ -8,6 +8,7 @@
   const FRAME_PAD = 14;
   const FRAME_MARGIN = 10;
   const FRAME_SPACING = 24;
+  const FRAME_LABEL_TOP = 22;
   const PAD_X = 18;
   const PAD_Y = 10;
   const MAX_W = 260;
@@ -226,6 +227,11 @@
     return order;
   }
 
+  function frameLabelTop(fid) {
+    const f = M.Model.frames.find((x) => x.id === fid);
+    return f && f.label ? FRAME_LABEL_TOP : 0;
+  }
+
   function boundaryGaps(order, frameIdx) {
     const minAt = new Map(), maxAt = new Map();
     for (let i = 0; i < order.length; i++) {
@@ -254,7 +260,7 @@
       if (sb) for (const fid of sb) {
         if (minAt.get(fid) === i + 1) {
           upHas = true;
-          const o = FRAME_PAD - b.fmTop.get(fid) - b.ownHalf;
+          const o = FRAME_PAD + frameLabelTop(fid) - b.fmTop.get(fid) - b.ownHalf;
           if (o > 0) upOut = Math.max(upOut, o);
           else upIn = Math.min(upIn, -o);
         }
@@ -409,7 +415,7 @@
   }
 
   M.Layout = {
-    GAP_X, GAP_Y, FRAME_PAD, FRAME_MARGIN, FRAME_SPACING, IMG_W, IMG_H, IMG_GAP, PAD_X, PAD_Y, MAX_W,
+    GAP_X, GAP_Y, FRAME_PAD, FRAME_MARGIN, FRAME_SPACING, FRAME_LABEL_TOP, IMG_W, IMG_H, IMG_GAP, PAD_X, PAD_Y, MAX_W,
     layoutAll, treeLayout, freeLayout,
     initFreePositions, bounds, nodeSize,
     truncate, wrapText, wrapParts, splitParts, measureText, fontMetrics

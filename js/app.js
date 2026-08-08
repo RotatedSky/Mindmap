@@ -104,7 +104,7 @@
   function tplBody(extraHint) {
     return (extraHint ? "<div class='m-hint'>" + extraHint + "</div>" : "") +
       "<div class='tpl-grid'>" + M.Model.templates.map(tplCard).join("") +
-      "<div class='tpl-card tpl-blank' data-tpl=''><h4>\u7a7a\u767d\u8111\u56fe</h4><p>\u4ec5\u6839\u8282\u70b9\uff0c\u4ece\u96f6\u5f00\u59cb\u7ed8\u5236</p></div></div>";
+      "<div class='tpl-card tpl-blank' data-tpl=''><h4>\u7a7a\u767d\u601d\u7eea\u56fe</h4><p>\u4ec5\u6839\u8282\u70b9\uff0c\u4ece\u96f6\u5f00\u59cb\u7ed8\u5236</p></div></div>";
   }
 
   function wireTpl(dlg) {
@@ -128,8 +128,8 @@
 
   function showNewDialog() {
     const dlg = modal({
-      title: "\u65b0\u5efa\u8111\u56fe",
-      body: tplBody("\u5c06\u66ff\u6362\u5f53\u524d\u8111\u56fe\u5185\u5bb9\uff0c\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002"),
+      title: "\u65b0\u5efa\u601d\u7eea\u56fe",
+      body: tplBody("\u5c06\u66ff\u6362\u5f53\u524d\u601d\u7eea\u56fe\u5185\u5bb9\uff0c\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002"),
       ok: "\u53d6\u6d88"
     });
     wireTpl(dlg);
@@ -137,8 +137,8 @@
 
   function showWelcome() {
     const dlg = modal({
-      title: "\u6b22\u8fce\u4f7f\u7528\u8111\u56fe\u5de5\u5177",
-      body: "<div class='m-hint'>\u9009\u62e9\u4e00\u4e2a\u6a21\u677f\u5f00\u59cb\uff0c\u6216\u76f4\u63a5\u521b\u5efa\u7a7a\u767d\u8111\u56fe\u3002\u5411\u4e0a\u62d6\u52a8\u7a7a\u767d\u533a\u57df\u53ef\u5e73\u79fb\u753b\u5e03\uff0c\u6eda\u8f6e\u53ef\u7f29\u653e\u3002</div>" +
+      title: "\u6b22\u8fce\u4f7f\u7528\u601d\u7eea\u56fe\u5de5\u5177",
+      body: "<div class='m-hint'>\u9009\u62e9\u4e00\u4e2a\u6a21\u677f\u5f00\u59cb\uff0c\u6216\u76f4\u63a5\u521b\u5efa\u7a7a\u767d\u601d\u7eea\u56fe\u3002\u5411\u4e0a\u62d6\u52a8\u7a7a\u767d\u533a\u57df\u53ef\u5e73\u79fb\u753b\u5e03\uff0c\u6eda\u8f6e\u53ef\u7f29\u653e\u3002</div>" +
         tplBody(""),
       ok: "\u6682\u4e0d\uff0c\u5148\u770b\u770b\u793a\u4f8b"
     });
@@ -207,7 +207,7 @@
     modal({
       title: "\u4ece Markdown \u5bfc\u5165",
       body: "<textarea id='md-input' placeholder='\u4f8b\u5982\uff1a\n- \u4e2d\u5fc3\u4e3b\u9898\n  - \u5206\u652f\u4e00\n    - \u5b50\u8282\u70b9\n  - \u5206\u652f\u4e8c\n\n\u652f\u6301\u7f29\u8fdb\u5217\u8868\uff08- * + \u6570\u5b57\uff09\u3001# \u6807\u9898\u3001[\\u6587\\u5b57](\\u94fe\\u63a5) \u3001![\\u56fe](\\u5730\\u5740)\u3001> \\u5907\u6ce8'></textarea>",
-      ok: "\u5bfc\u5165\u5e76\u8986\u76d6\u5f53\u524d\u8111\u56fe",
+      ok: "\u5bfc\u5165\u5e76\u8986\u76d6\u5f53\u524d\u601d\u7eea\u56fe",
       onOk: (root) => {
         const text = root.querySelector("#md-input").value;
         if (!text.trim()) return false;
@@ -330,9 +330,7 @@
       $("btn-outline").classList.toggle("primary", v);
     });
     $("btn-notes").addEventListener("click", () => {
-      const v = !M.Notes.isOpen();
-      M.Notes.setOpen(v);
-      $("btn-notes").classList.toggle("primary", v);
+      setNotesOpen(!M.Notes.isOpen());
     });
 
     $("btn-export").addEventListener("click", showExportDialog);
@@ -359,6 +357,11 @@
     $("layout-select").value = s.layoutMode || "tree";
     $("direction-select").value = s.direction || "right";
     $("bg-color").value = s.bg || getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim();
+  }
+
+  function setNotesOpen(v) {
+    M.Notes.setOpen(v);
+    $("btn-notes").classList.toggle("primary", v);
   }
 
   function init() {
@@ -400,5 +403,5 @@
     init();
   }
 
-  M.App = { init, toast, modal, showHelp, showWelcome, showNewDialog };
+  M.App = { init, toast, modal, showHelp, showWelcome, showNewDialog, setNotesOpen };
 })();

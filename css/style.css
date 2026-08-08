@@ -140,7 +140,7 @@ body {
   z-index: 30; flex-shrink: 0;
 }
 .brand { font-weight: 700; font-size: 16px; margin-right: 6px; white-space: nowrap; }
-.brand .logo { color: var(--ui-accent); }
+.brand .logo { width: 18px; height: 18px; vertical-align: -3px; margin-right: 4px; border-radius: 4px; }
 .tb-group { display: flex; align-items: center; gap: 4px; padding: 0 6px; border-left: 1px solid var(--panel-border); }
 .tb-group:first-of-type { border-left: none; }
 

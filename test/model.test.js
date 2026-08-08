@@ -273,7 +273,7 @@ test("reset 恢复示例树并清空历史", () => {
   mm.Model.change(() => { mm.Model.root.text = "y"; });
   mm.Model.reset();
   assert.ok(mm.Model.root.text);
-  assert.equal(mm.Model.root.text, "欢迎使用脑图工具");
+  assert.equal(mm.Model.root.text, "欢迎使用思绪图工具");
   assert.equal(mm.Model.undo(), false);
 });
 

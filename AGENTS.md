@@ -1,6 +1,6 @@
 # AGENTS.md
 
-纯前端零依赖脑图工具（IIFE 模块挂载 `window.MM`）。功能开发必须遵循 `docs/development-workflow.md` 定义的工作流：方案设计 → 开发 → 测试 → 问题修改。
+纯前端零依赖思绪图工具（IIFE 模块挂载 `window.MM`）。功能开发必须遵循 `docs/development-workflow.md` 定义的工作流：方案设计 → 开发 → 测试 → 问题修改。
 
 ## 常用命令
 

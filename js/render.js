@@ -212,7 +212,10 @@
     if (node.notes) {
       svgEl("circle", {
         class: "note-dot",
-        cx: w / 2 - 7, cy: h / 2 - 7, r: 3.5, fill: theme.accent
+        "data-id": node.id,
+        cx: -w / 2 - 8, cy: -h / 2 + 8, r: 6,
+        fill: theme.foldBg, stroke: theme.accent, "stroke-width": 1.5,
+        cursor: "pointer"
       }, grp);
     }
 
@@ -260,6 +263,14 @@
     if (!parent) return edgePoint(n, n.x, n.y, other.x, other.y);
     const dir = parent.x < n.x ? 1 : -1;
     return { x: n.x + dir * n.w / 2, y: n.y };
+  }
+
+  function bezierPoint(t, pa, c1, c2, pb) {
+    const u = 1 - t;
+    return {
+      x: u * u * u * pa.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * pb.x,
+      y: u * u * u * pa.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * pb.y
+    };
   }
 
   function relationGeometry(rel, theme, override) {
@@ -315,11 +326,12 @@
     const bx = ax - adx * size, by = ay - ady * size;
     const px1 = bx - ady * size * 0.55, py1 = by + adx * size * 0.55;
     const px2 = bx + ady * size * 0.55, py2 = by - adx * size * 0.55;
+    const labelPt = bezierPoint(rel.labelT == null ? 0.5 : rel.labelT, pa, c1, c2, pb);
     return {
       d,
       arrow: "M " + ax + " " + ay + " L " + px1 + " " + py1 + " L " + px2 + " " + py2 + " Z",
-      labelX: (pa.x + 3 * c1.x + 3 * c2.x + pb.x) / 8,
-      labelY: (pa.y + 3 * c1.y + 3 * c2.y + pb.y) / 8,
+      labelX: labelPt.x,
+      labelY: labelPt.y,
       pa, pb, c1, c2, tx, ty, nx, ny, dist
     };
   }
@@ -489,13 +501,13 @@
         svg.connEls.set(n.id, p);
       }
     }
+    for (const f of M.Model.frames) drawFrame(f, g, theme, visibleIds);
+    for (const n of visible) buildNode(g, n, theme, opts);
     for (const rel of M.Model.relations) {
       if (visibleIds.has(rel.from) && visibleIds.has(rel.to)) {
         drawRelation(g, rel, theme);
       }
     }
-    for (const f of M.Model.frames) drawFrame(f, g, theme, visibleIds);
-    for (const n of visible) buildNode(g, n, theme, opts);
     return g;
   }
 
@@ -661,7 +673,7 @@
     init(el) { svg.el = el; },
     render, renderTreeInto, applySelectionClasses,
     setTransform, worldToScreen, screenToWorld, fit, centerOn,
-    toSVGString, updateFreeDrag, updateRelation, relationGeometry, frameGeometry, footprintOf,
+    toSVGString, updateFreeDrag, updateRelation, relationGeometry, bezierPoint, frameGeometry, footprintOf,
     get view() { return svg; }
   };
 })();
