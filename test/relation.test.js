@@ -178,3 +178,110 @@ test("bezierPoint 与几何一致，labelT 序列化保留且越界钳制", () =
   mm2.Model.deserialize(data);
   assert.equal(mm2.Model.relations[0].labelT, 1, "labelT 经序列化保留");
 });
+
+function frameFixture(mm) {
+  const root = mm.Model.createNode("root");
+  const m1 = mm.Model.addChild(root, "M1");
+  const m2 = mm.Model.addChild(root, "M2");
+  const y = mm.Model.addChild(root, "Y");
+  mm.Model.replaceRoot(root);
+  mm.Model.addFrame([m1.id, m2.id]);
+  return { root, m1, m2, y, f: mm.Model.frames[0] };
+}
+
+function frameBox(mm, f) {
+  const vis = new Set(mm.Model.visibleNodes(mm.Model.root).map((n) => n.id));
+  return mm.Render.frameGeometry(f, vis);
+}
+
+function onBorder(p, g) {
+  return (p.x === g.x || p.x === g.x + g.w || p.y === g.y || p.y === g.y + g.h);
+}
+
+test("外框挂链：from 端点落在外框边界，to 端点为节点锚点", () => {
+  const { mm } = fresh();
+  const { root, m1, m2, y, f } = frameFixture(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const fg = frameBox(mm, f);
+  assert.ok(fg);
+  const rel = mm.Model.addRelation(f.id, y.id, { fromFrame: true });
+  assert.ok(rel, "外框→节点关联创建成功");
+  const geo = mm.Render.relationGeometry(rel);
+  assert.ok(geo);
+  assert.ok(onBorder(geo.pa, fg), "from 端点在外框矩形边界上");
+  assert.ok(geo.pa.x >= fg.x && geo.pa.x <= fg.x + fg.w && geo.pa.y >= fg.y && geo.pa.y <= fg.y + fg.h);
+  assert.equal(geo.pb.x, y.x + y.w / 2, "节点端使用自由侧锚点（右布局）");
+  assert.equal(geo.pb.y, y.y);
+});
+
+test("节点→外框：to 端点落在外框边界", () => {
+  const { mm } = fresh();
+  const { root, y, f } = frameFixture(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const fg = frameBox(mm, f);
+  const rel = mm.Model.addRelation(y.id, f.id, { toFrame: true });
+  const geo = mm.Render.relationGeometry(rel);
+  assert.ok(geo);
+  assert.equal(geo.pa.x, y.x + y.w / 2, "from 端为节点");
+  assert.ok(onBorder(geo.pb, fg), "to 端点在外框矩形边界上");
+});
+
+test("外框挂链：去重区分端点类型，序列化保留，删除外框清理关联", () => {
+  const { mm } = fresh();
+  const { root, y, f } = frameFixture(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  assert.ok(mm.Model.addRelation(f.id, y.id, { fromFrame: true }));
+  assert.equal(mm.Model.addRelation(f.id, y.id, { fromFrame: true }), null, "同类型重复拒绝");
+  assert.ok(mm.Model.addRelation(f.id, y.id), "节点间关联与外框关联可共存");
+
+  const data = JSON.parse(JSON.stringify(mm.Model.serialize()));
+  const mm2 = fresh().mm;
+  mm2.Model.deserialize(data);
+  assert.equal(mm2.Model.relations[0].fromFrame, true, "fromFrame 经序列化保留");
+  assert.equal(mm2.Model.relations[0].toFrame, undefined, "无 toFrame 标记");
+
+  const f2 = mm2.Model.frames[0];
+  mm2.Model.removeFrame(f2.id);
+  assert.equal(mm2.Model.relations.some((r) => r.fromFrame), false, "删除外框清理挂链关联");
+  assert.equal(mm2.Model.relations.length, 1, "节点间关联保留");
+});
+
+test("成员全部删除后外框自动移除并清理挂链关联", () => {
+  const { mm } = fresh();
+  const { root, m1, m2, y, f } = frameFixture(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  mm.Model.addRelation(f.id, y.id, { fromFrame: true });
+  mm.Model.removeNode(m1);
+  mm.Model.removeNode(m2);
+  assert.equal(mm.Model.frames.length, 0, "空外框被移除");
+  assert.equal(mm.Model.relations.length, 0, "挂链关联被清理");
+});
+
+test("外框端点锚点：fromPt 相对框中心定位并随序列化保留", () => {
+  const { mm } = fresh();
+  const { root, y, f } = frameFixture(mm);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const fg = frameBox(mm, f);
+  const rel = mm.Model.addRelation(f.id, y.id, { fromFrame: true });
+  rel.fromPt = { x: 0, y: -1000 };
+  const geo = mm.Render.relationGeometry(rel);
+  assert.ok(geo);
+  assert.equal(geo.pa.x, fg.x + fg.w / 2, "垂直向上锚点 → 框上边中点");
+  assert.equal(geo.pa.y, fg.y);
+
+  rel.fromPt = { x: -1000, y: 0 };
+  const geo2 = mm.Render.relationGeometry(rel);
+  assert.equal(geo2.pa.x, fg.x, "水平向左锚点 → 框左边中点");
+  assert.equal(geo2.pa.y, fg.y + fg.h / 2);
+
+  const data = JSON.parse(JSON.stringify(mm.Model.serialize()));
+  const mm2 = fresh().mm;
+  mm2.Model.deserialize(data);
+  mm2.Layout.treeLayout(mm2.Model.root, "right", THEME);
+  const rel2 = mm2.Model.relations[0];
+  const g2 = mm2.Render.frameGeometry(mm2.Model.frames[0],
+    new Set(mm2.Model.visibleNodes(mm2.Model.root).map((n) => n.id)));
+  const geo3 = mm2.Render.relationGeometry(rel2);
+  assert.equal(geo3.pa.x, g2.x, "fromPt 经序列化保留（框位置以反序列化后为准）");
+  assert.equal(geo3.pa.y, g2.y + g2.h / 2);
+});

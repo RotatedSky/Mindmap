@@ -55,7 +55,7 @@
     svg.addEventListener("pointermove", onPointerMove);
     svg.addEventListener("pointerup", onPointerUp);
     svg.addEventListener("pointercancel", onPointerUp);
-    svg.addEventListener("dblclick", onDblClick);
+    svg.addEventListener("click", onSvgClick);
     svg.addEventListener("contextmenu", onContextMenu);
     document.addEventListener("pointerdown", onDocPointerDown, true);
     document.addEventListener("keydown", onKeyDown);
@@ -110,19 +110,47 @@
     return best;
   }
 
+  function hitFrameForRel(wx, wy, excludeId) {
+    const vis = new Set(M.Model.visibleNodes(M.Model.root).map((n) => n.id));
+    for (const f of M.Model.frames) {
+      if (f.id === excludeId) continue;
+      const g = M.Render.frameGeometry(f, vis);
+      if (g && wx >= g.x && wx <= g.x + g.w && wy >= g.y && wy <= g.y + g.h) return f;
+    }
+    return null;
+  }
+
   function selectRelation(id) {
     ed.selectedRelId = id;
     M.Render.render();
   }
 
-  function startConnect(node) {
-    ed.connectFrom = node.id;
-    M.App.toast("\u70b9\u51fb\u76ee\u6807\u8282\u70b9\u5b8c\u6210\u8fde\u7ebf\uff0cEsc \u53d6\u6d88");
+  function startConnectFrom(id, frame) {
+    ed.connectFrom = { id, frame: !!frame };
+    M.App.toast("\u70b9\u51fb\u76ee\u6807\u8282\u70b9\u6216\u5916\u6846\u5b8c\u6210\u8fde\u7ebf\uff0cEsc \u53d6\u6d88");
     const preview = document.getElementById("rel-preview");
     if (preview) {
-      preview.setAttribute("d", "M " + node.x + " " + node.y + " L " + node.x + " " + node.y);
+      const p = connectStartPoint();
+      preview.setAttribute("d", "M " + p.x + " " + p.y + " L " + p.x + " " + p.y);
       preview.style.display = "block";
     }
+  }
+
+  function startConnect(node) {
+    startConnectFrom(node.id, false);
+  }
+
+  function connectStartPoint() {
+    const c = ed.connectFrom;
+    if (!c) return { x: 0, y: 0 };
+    if (c.frame) {
+      const f = M.Model.frames.find((x) => x.id === c.id);
+      const visibleIds = new Set(M.Model.visibleNodes(M.Model.root).map((n) => n.id));
+      const geo = f && M.Render.frameGeometry(f, visibleIds);
+      return geo ? { x: geo.x + geo.w / 2, y: geo.y + geo.h / 2 } : { x: 0, y: 0 };
+    }
+    const n = M.Model.find(M.Model.root, c.id);
+    return n ? { x: n.x, y: n.y } : { x: 0, y: 0 };
   }
 
   function endConnect() {
@@ -131,12 +159,25 @@
     if (preview) preview.style.display = "none";
   }
 
+  function finishConnect(targetId, isFrame) {
+    const c = ed.connectFrom;
+    if (!c) return;
+    if (c.id === targetId && c.frame === isFrame) { endConnect(); return; }
+    let created = null;
+    M.Model.change(() => {
+      created = M.Model.addRelation(c.id, targetId, { fromFrame: c.frame, toFrame: isFrame });
+    });
+    if (created) M.App.toast("\u5df2\u521b\u5efa\u5173\u8054");
+    else M.App.toast("\u5df2\u5b58\u5728\u76f8\u540c\u5173\u8054", true);
+    endConnect();
+  }
+
   function updatePreview(toX, toY) {
     if (!ed.connectFrom) return;
-    const node = M.Model.find(M.Model.root, ed.connectFrom);
+    const p = connectStartPoint();
     const preview = document.getElementById("rel-preview");
-    if (node && preview) {
-      preview.setAttribute("d", "M " + node.x + " " + node.y + " L " + toX + " " + toY);
+    if (preview) {
+      preview.setAttribute("d", "M " + p.x + " " + p.y + " L " + toX + " " + toY);
     }
   }
 
@@ -228,14 +269,16 @@
     }
     const frame = targetFrame(e);
     if (frame) {
+      if (ed.connectFrom) {
+        finishConnect(frame.id, true);
+        return;
+      }
       const labelHit = e.target && e.target.closest ? e.target.closest(".frame-label") : null;
       if (labelHit) {
-        if (ed.connectFrom) endConnect();
         selectFrame(frame.id);
         beginFrameLabelEdit(frame);
         return;
       }
-      if (ed.connectFrom) endConnect();
       selectFrame(frame.id);
       ed.mode = "frame";
       return;
@@ -244,13 +287,7 @@
     if (node) {
       ed.selectedFrameId = null;
       if (ed.connectFrom) {
-        if (node.id !== ed.connectFrom) {
-          let created = null;
-          M.Model.change(() => { created = M.Model.addRelation(ed.connectFrom, node.id); });
-          if (created) M.App.toast("\u5df2\u521b\u5efa\u5173\u8054");
-          else M.App.toast("\u5df2\u5b58\u5728\u76f8\u540c\u5173\u8054", true);
-          endConnect();
-        }
+        finishConnect(node.id, false);
         return;
       }
       if (e.shiftKey || e.ctrlKey || e.metaKey) {
@@ -420,9 +457,15 @@
         M.Render.updateRelation(rel.id);
       } else {
         const keep = ed.relDragKind === "from" ? rel.to : rel.from;
-        const target = hitNodeForRel(w.x, w.y, keep);
+        const keepFrame = ed.relDragKind === "from" ? !!rel.toFrame : !!rel.fromFrame;
+        const target = hitNodeForRel(w.x, w.y, keepFrame ? null : keep);
+        const fTarget = target ? null : hitFrameForRel(w.x, w.y, keepFrame ? keep : null);
         for (const [id, el] of M.Render.view.nodeEls) {
           el.classList.toggle("drop-target", id === (target && target.id));
+        }
+        for (const f of M.Model.frames) {
+          const fr = ed.svg.querySelector('rect.frame-rect[data-id="' + f.id + '"]');
+          if (fr) fr.classList.toggle("frame-drop-target", fTarget && fTarget.id === f.id);
         }
         M.Render.updateRelation(rel.id, M.Render.relationGeometry(rel, null,
           ed.relDragKind === "from" ? { from: w } : { to: w }));
@@ -583,37 +626,86 @@
           const rect = ed.svg.getBoundingClientRect();
           const w = M.Render.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
           const keep = ed.relDragKind === "from" ? rel.to : rel.from;
-          const target = hitNodeForRel(w.x, w.y, keep);
+          const keepFrame = ed.relDragKind === "from" ? !!rel.toFrame : !!rel.fromFrame;
+          const target = hitNodeForRel(w.x, w.y, keepFrame ? null : keep);
+          const fTarget = target ? null : hitFrameForRel(w.x, w.y, keepFrame ? keep : null);
           if (target) {
             M.Model.change(() => {
-              if (ed.relDragKind === "from") { rel.from = target.id; delete rel.fromPt; }
-              else { rel.to = target.id; delete rel.toPt; }
+              if (ed.relDragKind === "from") { rel.from = target.id; delete rel.fromFrame; delete rel.fromPt; }
+              else { rel.to = target.id; delete rel.toFrame; delete rel.toPt; }
+            });
+            M.App.toast("\u5df2\u91cd\u65b0\u8fde\u63a5\u5173\u8054");
+          } else if (fTarget) {
+            M.Model.change(() => {
+              if (ed.relDragKind === "from") { rel.from = fTarget.id; rel.fromFrame = true; delete rel.fromPt; }
+              else { rel.to = fTarget.id; rel.toFrame = true; delete rel.toPt; }
             });
             M.App.toast("\u5df2\u91cd\u65b0\u8fde\u63a5\u5173\u8054");
           } else {
-            const node = M.Model.find(M.Model.root, ed.relDragKind === "from" ? rel.from : rel.to);
-            if (node) {
-              M.Model.record();
-              const pt = { x: w.x - node.x, y: w.y - node.y };
-              if (ed.relDragKind === "from") rel.fromPt = pt;
-              else rel.toPt = pt;
-              M.Model.touch();
+            const isFrame = ed.relDragKind === "from" ? !!rel.fromFrame : !!rel.toFrame;
+            const id = ed.relDragKind === "from" ? rel.from : rel.to;
+            let cx = 0, cy = 0;
+            if (isFrame) {
+              const vis = new Set(M.Model.visibleNodes(M.Model.root).map((n) => n.id));
+              const f = M.Model.frames.find((x) => x.id === id);
+              const g = f && M.Render.frameGeometry(f, vis);
+              if (!g) { M.Render.render(); return; }
+              cx = g.x + g.w / 2; cy = g.y + g.h / 2;
+            } else {
+              const node = M.Model.find(M.Model.root, id);
+              if (!node) { M.Render.render(); return; }
+              cx = node.x; cy = node.y;
             }
+            M.Model.record();
+            const pt = { x: w.x - cx, y: w.y - cy };
+            if (ed.relDragKind === "from") rel.fromPt = pt;
+            else rel.toPt = pt;
+            M.Model.touch();
           }
           for (const el of M.Render.view.nodeEls.values()) el.classList.remove("drop-target");
+          for (const f of M.Model.frames) {
+            const fr = ed.svg.querySelector('rect.frame-rect[data-id="' + f.id + '"]');
+            if (fr) fr.classList.remove("frame-drop-target");
+          }
         }
       }
       ed.dragRelId = null;
       ed.relDragKind = null;
       ed.moved = false;
       ed.mode = null;
-      M.Render.render();
       return;
     }
     ed.mode = null;
   }
 
-  function onDblClick(e) {
+  let dblTrack = { t: 0, x: 0, y: 0 };
+
+  function onSvgClick(e) {
+    if (ed.isEditing) {
+      dblTrack.t = 0;
+      return;
+    }
+    const now = Date.now();
+    const dx = e.clientX - dblTrack.x, dy = e.clientY - dblTrack.y;
+    if (now - dblTrack.t < 500 && Math.hypot(dx, dy) < 8) {
+      dblTrack.t = 0;
+      handleDblClick(e);
+    } else {
+      dblTrack = { t: now, x: e.clientX, y: e.clientY };
+    }
+  }
+
+  function handleDblClick(e) {
+    const rel = targetRel(e);
+    if (rel) {
+      beginRelLabelEdit(rel);
+      return;
+    }
+    const frame = targetFrame(e);
+    if (frame) {
+      beginFrameLabelEdit(frame);
+      return;
+    }
     const node = targetNode(e);
     if (node) beginEdit(node);
   }
@@ -649,6 +741,7 @@
       menu.appendChild(div);
     };
     add("\u270f\u2002\u7f16\u8f91\u6807\u7b7e\u2026", () => beginFrameLabelEdit(frame));
+    add("\ud83d\udd17\u2002\u5efa\u7acb\u5173\u8054\u2026", () => startConnectFrom(frame.id, true));
     add("\ud83d\uddd1\u2002\u5220\u9664\u5916\u6846", () => {
       M.Model.change(() => {
         M.Model.removeFrame(frame.id);
@@ -687,6 +780,11 @@
         const tmp = rel.from;
         rel.from = rel.to;
         rel.to = tmp;
+        const wasFromFrame = !!rel.fromFrame;
+        if (rel.toFrame) rel.fromFrame = true;
+        else delete rel.fromFrame;
+        if (wasFromFrame) rel.toFrame = true;
+        else delete rel.toFrame;
       });
     });
     const rect = ed.svg.getBoundingClientRect();
@@ -1078,11 +1176,15 @@
       sep();
       add("\ud83c\udfa8\u2002\u7740\u8272", () => showColorMenu(node));
       const selCount = M.Model.selectedNodes().length;
+      const frameOf = M.Model.frames.find((f) => f.nodes.includes(node.id));
       if (selCount > 1) {
         add("\u2610\u2002\u6dfb\u52a0\u5916\u6846\uff08" + selCount + " \u4e2a\u8282\u70b9\uff09", () => toggleGroupFrame());
       } else {
-        add(node.frame ? "\u274c\u2002\u79fb\u9664\u5916\u6846" : "\u2610\u2002\u6dfb\u52a0\u5916\u6846", () => {
-          M.Model.change(() => { node.frame = !node.frame; });
+        add(frameOf ? "\u274c\u2002\u79fb\u9664\u5916\u6846" : "\u2610\u2002\u6dfb\u52a0\u5916\u6846", () => {
+          M.Model.change(() => {
+            if (frameOf) M.Model.removeFrame(frameOf.id);
+            else M.Model.addFrame([node.id]);
+          });
           M.Render.render();
         });
       }      if (node.image) add("\ud83d\uddbc\u2002\u66ff\u6362\u56fe\u7247", () => pickImage(node));
@@ -1200,8 +1302,9 @@
       M.Model.change(() => M.Model.removeFrame(existing.id));
       M.App.toast("\u5df2\u79fb\u9664\u5916\u6846");
     } else {
-      M.Model.change(() => M.Model.addFrame(sel));
-      M.App.toast("\u5df2\u4e3a " + sel.length + " \u4e2a\u8282\u70b9\u6dfb\u52a0\u5916\u6846");
+      const ok = M.Model.change(() => M.Model.addFrame(sel));
+      if (ok) M.App.toast("\u5df2\u4e3a " + sel.length + " \u4e2a\u8282\u70b9\u6dfb\u52a0\u5916\u6846");
+      else M.App.toast("\u5916\u6846\u6210\u5458\u5fc5\u987b\u4e3a\u540c\u4e00\u5206\u652f\u7684\u8282\u70b9\uff08\u53ef\u591a\u9009\u540c\u5c42\u5144\u5f1f\u6216\u7236\u5b50\u94fe\u4e0a\u7684\u8282\u70b9\uff09", true);
     }
   }
 

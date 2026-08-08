@@ -9,7 +9,11 @@
   const THEMES = [
     { id: "blue", name: "\u7ecf\u5178\u84dd", dot: "#2e6fb0" },
     { id: "green", name: "\u6e05\u65b0\u7eff", dot: "#3a9d5c" },
+    { id: "red", name: "\u4e2d\u56fd\u7ea2", dot: "#d64545" },
     { id: "sunset", name: "\u65e5\u843d\u6696\u8272", dot: "#e07b39" },
+    { id: "violet", name: "\u68a6\u5e7b\u7d2b", dot: "#7a5bd8" },
+    { id: "ocean", name: "\u6d77\u6d0b\u9752", dot: "#17a2a8" },
+    { id: "paper", name: "\u6696\u7eb8\u7c73\u9ec4", dot: "#a97c3f" },
     { id: "night", name: "\u6df1\u8272\u591c\u95f4", dot: "#1c2230" },
     { id: "mono", name: "\u7b80\u7ea6\u9ed1\u767d", dot: "#222222" },
     { id: "morandi", name: "\u83ab\u5170\u8fea", dot: "#8f7e6d" }
@@ -236,8 +240,10 @@
 
   function applyTheme(themeId) {
     document.documentElement.dataset.theme = themeId;
-    M.Model.setSettings({ theme: themeId });
+    M.Model.setSettings({ theme: themeId, bg: "" });
     applyBg();
+    $("bg-color").value =
+      getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim();
     M.Layout.layoutAll();
     M.Storage.save();
     M.Render.render();

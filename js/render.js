@@ -95,17 +95,6 @@
       rx: r, fill: fill, stroke: stroke, "stroke-width": 1.5
     }, grp);
 
-    if (node.frame) {
-      const bb = footprintOf(node);
-      svgEl("rect", {
-        class: "node-frame",
-        x: bb.minX - node.x - 6, y: bb.minY - node.y - 6,
-        width: bb.maxX - bb.minX + 12, height: bb.maxY - bb.minY + 12,
-        rx: r + 4, fill: "none", stroke: theme.accent, "stroke-width": 1.5,
-        "stroke-dasharray": "7 5", "pointer-events": "none"
-      }, grp);
-    }
-
     if (node.image) {
       const iw = w - 16, ih = M.Layout.IMG_H;
       const clipId = "imgclip" + (++svg.clipSeq);
@@ -273,26 +262,61 @@
     };
   }
 
+  function frameBorderPoint(geo, dx, dy) {
+    const cx = geo.x + geo.w / 2, cy = geo.y + geo.h / 2;
+    const hw = geo.w / 2, hh = geo.h / 2;
+    if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return { x: cx, y: cy };
+    const t = Math.min(hw / Math.abs(dx), hh / Math.abs(dy));
+    return { x: cx + dx * t, y: cy + dy * t };
+  }
+
+  function endpointVisible(rel, which, visibleIds) {
+    const isFrame = which === "from" ? rel.fromFrame : rel.toFrame;
+    const id = which === "from" ? rel.from : rel.to;
+    if (isFrame) {
+      const f = M.Model.frames.find((x) => x.id === id);
+      return !!f && f.nodes.some((nid) => visibleIds.has(nid));
+    }
+    return visibleIds.has(id);
+  }
+
+  function endpointPos(rel, which, visibleIds) {
+    const isFrame = which === "from" ? rel.fromFrame : rel.toFrame;
+    const id = which === "from" ? rel.from : rel.to;
+    if (isFrame) {
+      const f = M.Model.frames.find((x) => x.id === id);
+      const geo = f && frameGeometry(f, visibleIds);
+      return geo ? { frame: f, geo } : null;
+    }
+    const n = M.Model.find(M.Model.root, id);
+    return n ? { node: n } : null;
+  }
+
   function relationGeometry(rel, theme, override) {
     theme = theme || M.Theme.get();
-    const a = M.Model.find(M.Model.root, rel.from);
-    const b = M.Model.find(M.Model.root, rel.to);
+    const visibleIds = new Set(M.Model.visibleNodes(M.Model.root).map((n) => n.id));
+    const a = endpointPos(rel, "from", visibleIds);
+    const b = endpointPos(rel, "to", visibleIds);
     if (!a || !b) return null;
+    const centerOf = (ep) => ep.frame ? { x: ep.geo.x + ep.geo.w / 2, y: ep.geo.y + ep.geo.h / 2 } : ep.node;
+    const ca = centerOf(a), cb = centerOf(b);
     let pa, pb;
-    if (override && override.from) {
-      pa = borderPoint(a, { x: override.from.x - a.x, y: override.from.y - a.y });
-    } else if (rel.fromPt) {
-      pa = borderPoint(a, rel.fromPt);
-    } else {
-      pa = freeSideAnchor(a, b);
-    }
-    if (override && override.to) {
-      pb = borderPoint(b, { x: override.to.x - b.x, y: override.to.y - b.y });
-    } else if (rel.toPt) {
-      pb = borderPoint(b, rel.toPt);
-    } else {
-      pb = freeSideAnchor(b, a);
-    }
+    const dirA = override && override.from ? { x: override.from.x - ca.x, y: override.from.y - ca.y } : { x: cb.x - ca.x, y: cb.y - ca.y };
+    if (a.frame) {
+      if (override && override.from) pa = frameBorderPoint(a.geo, dirA.x, dirA.y);
+      else if (rel.fromPt) pa = frameBorderPoint(a.geo, rel.fromPt.x, rel.fromPt.y);
+      else pa = frameBorderPoint(a.geo, dirA.x, dirA.y);
+    } else if (override && override.from) pa = borderPoint(a.node, dirA);
+    else if (rel.fromPt) pa = borderPoint(a.node, rel.fromPt);
+    else pa = freeSideAnchor(a.node, b.frame ? cb : b.node);
+    const dirB = override && override.to ? { x: override.to.x - cb.x, y: override.to.y - cb.y } : { x: ca.x - cb.x, y: ca.y - cb.y };
+    if (b.frame) {
+      if (override && override.to) pb = frameBorderPoint(b.geo, dirB.x, dirB.y);
+      else if (rel.toPt) pb = frameBorderPoint(b.geo, rel.toPt.x, rel.toPt.y);
+      else pb = frameBorderPoint(b.geo, dirB.x, dirB.y);
+    } else if (override && override.to) pb = borderPoint(b.node, dirB);
+    else if (rel.toPt) pb = borderPoint(b.node, rel.toPt);
+    else pb = freeSideAnchor(b.node, a.frame ? ca : a.node);
     let dx = pb.x - pa.x, dy = pb.y - pa.y;
     let dist = Math.hypot(dx, dy);
     if (dist < 1) { dx = 1; dy = 0; dist = 1; }
@@ -425,8 +449,11 @@
       any = true;
     }
     if (!any || !isFinite(minX)) return null;
-    const pad = M.Layout.FRAME_PAD;
-    return { x: minX - pad, y: minY - pad, w: maxX - minX + pad * 2, h: maxY - minY + pad * 2 };
+    const padLeft = M.Layout.framePadLeft(f.id);
+    const padRight = M.Layout.framePadRight(f.id);
+    const padTop = M.Layout.framePadTop(f.id);
+    const padBot = M.Layout.framePadBot(f.id);
+    return { x: minX - padLeft, y: minY - padTop, w: maxX - minX + padLeft + padRight, h: maxY - minY + padTop + padBot };
   }
 
   function drawFrame(f, g, theme, visibleIds, plain) {
@@ -456,7 +483,7 @@
         transform: "translate(" + (geo.x + 10) + " " + (geo.y - 12) + ")", cursor: "pointer"
       }, g);
       svgEl("rect", {
-        x: 0, y: -12, width: lw, height: 20, rx: 10,
+        x: 0, y: -10, width: lw, height: 20, rx: 10,
         fill: theme.foldBg, stroke: color, "stroke-width": selected ? 2 : 1.2
       }, lg);
       const lt = svgEl("text", {
@@ -504,7 +531,7 @@
     for (const f of M.Model.frames) drawFrame(f, g, theme, visibleIds);
     for (const n of visible) buildNode(g, n, theme, opts);
     for (const rel of M.Model.relations) {
-      if (visibleIds.has(rel.from) && visibleIds.has(rel.to)) {
+      if (endpointVisible(rel, "from", visibleIds) && endpointVisible(rel, "to", visibleIds)) {
         drawRelation(g, rel, theme);
       }
     }
@@ -653,7 +680,7 @@
       }
     }
     for (const rel of M.Model.relations) {
-      if (vis.has(rel.from) && vis.has(rel.to)) {
+      if (endpointVisible(rel, "from", vis) && endpointVisible(rel, "to", vis)) {
         drawRelation(g, rel, theme, true);
       }
     }

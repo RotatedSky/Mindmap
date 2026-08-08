@@ -63,6 +63,86 @@
   --shadow: 0 4px 16px rgba(180, 100, 40, .12);
 }
 
+[data-theme="red"] {
+  --canvas-bg: #fdf4f4;
+  --line: #e0a9a9;
+  --node-bg: #fce9e9;
+  --node-border: #dc9a9a;
+  --node-text: #7d2f2f;
+  --root-bg: #d64545;
+  --root-text: #ffffff;
+  --fold-bg: #ffffff;
+  --fold-fg: #a05a5a;
+  --panel-bg: #ffffff;
+  --panel-border: #f0d6d6;
+  --ui-text: #7d2f2f;
+  --ui-muted: #b08a8a;
+  --ui-accent: #d64545;
+  --ui-hover: #fbe3e3;
+  --toolbar-bg: #ffffff;
+  --shadow: 0 4px 16px rgba(180, 50, 50, .10);
+}
+
+[data-theme="violet"] {
+  --canvas-bg: #f6f4fc;
+  --line: #b9a8e8;
+  --node-bg: #eee9fb;
+  --node-border: #a692dd;
+  --node-text: #4c3d7a;
+  --root-bg: #7a5bd8;
+  --root-text: #ffffff;
+  --fold-bg: #ffffff;
+  --fold-fg: #6f5fa8;
+  --panel-bg: #ffffff;
+  --panel-border: #ddd4f0;
+  --ui-text: #4c3d7a;
+  --ui-muted: #968ab0;
+  --ui-accent: #7a5bd8;
+  --ui-hover: #ece6fa;
+  --toolbar-bg: #ffffff;
+  --shadow: 0 4px 16px rgba(90, 60, 170, .12);
+}
+
+[data-theme="ocean"] {
+  --canvas-bg: #eff8f7;
+  --line: #8fc9c5;
+  --node-bg: #ddf2ef;
+  --node-border: #7dbdb8;
+  --node-text: #1f5f5b;
+  --root-bg: #17a2a8;
+  --root-text: #ffffff;
+  --fold-bg: #ffffff;
+  --fold-fg: #3f7a76;
+  --panel-bg: #ffffff;
+  --panel-border: #cfe6e2;
+  --ui-text: #1f5f5b;
+  --ui-muted: #7fa09c;
+  --ui-accent: #17a2a8;
+  --ui-hover: #ddf0ed;
+  --toolbar-bg: #ffffff;
+  --shadow: 0 4px 16px rgba(20, 130, 130, .10);
+}
+
+[data-theme="paper"] {
+  --canvas-bg: #fbf8ef;
+  --line: #c9b48f;
+  --node-bg: #f4ecd8;
+  --node-border: #c2a97e;
+  --node-text: #6b5533;
+  --root-bg: #a97c3f;
+  --root-text: #ffffff;
+  --fold-bg: #ffffff;
+  --fold-fg: #8a734b;
+  --panel-bg: #ffffff;
+  --panel-border: #e4d9c2;
+  --ui-text: #6b5533;
+  --ui-muted: #a08d6b;
+  --ui-accent: #a97c3f;
+  --ui-hover: #f2ead6;
+  --toolbar-bg: #fffdf7;
+  --shadow: 0 4px 16px rgba(140, 110, 60, .10);
+}
+
 [data-theme="night"] {
   --canvas-bg: #1c2230;
   --line: #54688a;
@@ -178,6 +258,7 @@ button.icon-btn { padding: 5px 8px; line-height: 1; }
 .node.search-hit { animation: hitpulse 1.2s ease-in-out infinite; }
 @keyframes hitpulse { 0%,100% { filter: drop-shadow(0 0 0 rgba(255,140,26,0)); } 50% { filter: drop-shadow(0 0 10px rgba(255,140,26,.75)); } }
 .node.drop-target .nrect { stroke: #ff8c1a !important; stroke-width: 4 !important; stroke-dasharray: 6 4; }
+rect.frame-rect.frame-drop-target { stroke: #ff8c1a !important; stroke-width: 4 !important; stroke-dasharray: 6 4; }
 .node.dragging { opacity: .55; }
 
 .marquee {

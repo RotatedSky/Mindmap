@@ -232,6 +232,65 @@
     return f && f.label ? FRAME_LABEL_TOP : 0;
   }
 
+  function nestedFrames(f) {
+    const out = [];
+    for (const f2 of M.Model.frames) {
+      if (f2 === f || !f2.nodes.length) continue;
+      let all = true;
+      for (const id of f2.nodes) {
+        let n = M.Model.find(M.Model.root, id);
+        let inside = false;
+        while (n) {
+          if (f.nodes.includes(n.id)) { inside = true; break; }
+          n = M.Model.findParent(M.Model.root, n.id);
+        }
+        if (!inside) { all = false; break; }
+      }
+      if (all) out.push(f2);
+    }
+    return out;
+  }
+
+  function framePadLeft(fid) {
+    const f = M.Model.frames.find((x) => x.id === fid);
+    let pad = FRAME_PAD;
+    if (!f) return pad;
+    for (const f2 of nestedFrames(f)) {
+      pad = Math.max(pad, framePadLeft(f2.id) + FRAME_PAD);
+    }
+    return pad;
+  }
+
+  function framePadRight(fid) {
+    const f = M.Model.frames.find((x) => x.id === fid);
+    let pad = FRAME_PAD;
+    if (!f) return pad;
+    for (const f2 of nestedFrames(f)) {
+      pad = Math.max(pad, framePadRight(f2.id) + FRAME_PAD);
+    }
+    return pad;
+  }
+
+  function framePadTop(fid) {
+    const f = M.Model.frames.find((x) => x.id === fid);
+    let pad = FRAME_PAD;
+    if (!f) return pad;
+    for (const f2 of nestedFrames(f)) {
+      pad = Math.max(pad, framePadTop(f2.id) + frameLabelTop(f2.id) + FRAME_PAD);
+    }
+    return pad;
+  }
+
+  function framePadBot(fid) {
+    const f = M.Model.frames.find((x) => x.id === fid);
+    let pad = FRAME_PAD;
+    if (!f) return pad;
+    for (const f2 of nestedFrames(f)) {
+      pad = Math.max(pad, framePadBot(f2.id) + FRAME_PAD);
+    }
+    return pad;
+  }
+
   function boundaryGaps(order, frameIdx) {
     const minAt = new Map(), maxAt = new Map();
     for (let i = 0; i < order.length; i++) {
@@ -244,35 +303,29 @@
     }
     const gaps = [];
     for (let i = 0; i < order.length - 1; i++) {
-      let downOut = 0, upOut = 0, downIn = Infinity, upIn = Infinity;
+      let downO = -Infinity, upO = -Infinity;
       let downHas = false, upHas = false;
       const a = order[i], b = order[i + 1];
       const sa = frameIdx.get(a.id);
       if (sa) for (const fid of sa) {
         if (maxAt.get(fid) === i) {
           downHas = true;
-          const o = a.fmBot.get(fid) + FRAME_PAD - a.ownHalf;
-          if (o > 0) downOut = Math.max(downOut, o);
-          else downIn = Math.min(downIn, -o);
+          downO = Math.max(downO, a.fmBot.get(fid) + framePadBot(fid) - a.ownHalf);
         }
       }
       const sb = frameIdx.get(b.id);
       if (sb) for (const fid of sb) {
         if (minAt.get(fid) === i + 1) {
           upHas = true;
-          const o = FRAME_PAD + frameLabelTop(fid) - b.fmTop.get(fid) - b.ownHalf;
-          if (o > 0) upOut = Math.max(upOut, o);
-          else upIn = Math.min(upIn, -o);
+          upO = Math.max(upO, framePadTop(fid) + frameLabelTop(fid) - b.fmTop.get(fid) - b.ownHalf);
         }
       }
       if (downHas && upHas) {
-        if (downIn === Infinity) downIn = 0;
-        if (upIn === Infinity) upIn = 0;
-        gaps.push(Math.max(GAP_Y, FRAME_SPACING + downOut + upOut - downIn - upIn));
+        gaps.push(Math.max(GAP_Y, FRAME_SPACING + downO + upO));
       } else if (downHas) {
-        gaps.push(Math.max(GAP_Y, FRAME_MARGIN + downOut));
+        gaps.push(Math.max(GAP_Y, FRAME_MARGIN + downO));
       } else if (upHas) {
-        gaps.push(Math.max(GAP_Y, FRAME_MARGIN + upOut));
+        gaps.push(Math.max(GAP_Y, FRAME_MARGIN + upO));
       } else {
         gaps.push(GAP_Y);
       }
@@ -297,6 +350,7 @@
         }
         const order = frameOrder(kids, frameIdx);
         const gaps = boundaryGaps(order, frameIdx);
+        for (const g of gaps) total += g;
         let cy = -total / 2;
         for (let i = 0; i < order.length; i++) {
           const k = order[i];
@@ -313,7 +367,6 @@
           }
           cy += k.subH + (i < order.length - 1 ? gaps[i] : 0);
         }
-        for (const g of gaps) total += g;
       }
       node.ownHalf = Math.max(node.h, total) / 2;
       const o = own.get(node.id);
@@ -416,6 +469,7 @@
 
   M.Layout = {
     GAP_X, GAP_Y, FRAME_PAD, FRAME_MARGIN, FRAME_SPACING, FRAME_LABEL_TOP, IMG_W, IMG_H, IMG_GAP, PAD_X, PAD_Y, MAX_W,
+    frameLabelTop, framePadTop, framePadBot, framePadLeft, framePadRight,
     layoutAll, treeLayout, freeLayout,
     initFreePositions, bounds, nodeSize,
     truncate, wrapText, wrapParts, splitParts, measureText, fontMetrics

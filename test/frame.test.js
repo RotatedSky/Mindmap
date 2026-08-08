@@ -282,29 +282,86 @@ test("footprintOf 覆盖节点及全部子孙，折叠后收缩", () => {
   assert.equal(intersects(wrap2, rect(b1)), false, "折叠后隐藏子孙不计入");
 });
 
-test("单节点外框（node.frame）绘制框包含全部子节点", () => {
+test("单节点外框（frames 机制）绘制框包含全部子节点", () => {
   const env = fresh();
   const { mm } = env;
   const { root, b } = treeFixture(mm);
   mm.Theme.get = () => THEME;
-  b.frame = true;
+  mm.Model.addFrame([b.id]);
   mm.Layout.treeLayout(root, "right", THEME);
   mm.Render.renderTreeInto(env.singletonEl, {});
   const rectEls = [];
   (function walk(el) {
     for (const c of el.children || []) {
-      if (c._attrs && c._attrs.class === "node-frame") rectEls.push(c);
+      if (c._attrs && c._attrs.class === "frame-rect") rectEls.push(c);
       walk(c);
     }
   })(env.singletonEl);
-  assert.equal(rectEls.length, 1, "应绘制一个 node-frame 矩形");
-  const a = rectEls[0]._attrs;
+  assert.equal(rectEls.length, 1, "应绘制一个 frame-rect 矩形");
+  const f = mm.Model.frames[0];
+  const vis = new Set(mm.Model.visibleNodes(root).map((n) => n.id));
+  const geo = mm.Render.frameGeometry(f, vis);
   const b1 = b.children[0];
   const b1a = b1.children[0];
-  const x = parseFloat(a.x), y = parseFloat(a.y);
-  const w = parseFloat(a.width), h = parseFloat(a.height);
-  assert.ok(x <= b1.x - b1.w / 2 - b.x, "外框左侧应覆盖 B1");
-  assert.ok(x + w >= b1.x + b1.w / 2 - b.x, "外框右侧应覆盖 B1");
-  assert.ok(y <= b1a.y - b1a.h / 2 - b.y, "外框顶部应覆盖 B1a");
-  assert.ok(y + h >= b1a.y + b1a.h / 2 - b.y, "外框底部应覆盖 B1a");
+  assert.ok(geo.x <= b1.x - b1.w / 2, "外框左侧应覆盖 B1");
+  assert.ok(geo.x + geo.w >= b1.x + b1.w / 2, "外框右侧应覆盖 B1");
+  assert.ok(geo.y <= b1a.y - b1a.h / 2, "外框顶部应覆盖 B1a");
+  assert.ok(geo.y + geo.h >= b1a.y + b1a.h / 2, "外框底部应覆盖 B1a");
+});
+
+test("旧数据 node.frame 迁移为 frames 机制且不重复", () => {
+  const { mm } = fresh();
+  const { root, a, b } = treeFixture(mm);
+  const a1 = a.children[0], a2 = a.children[1];
+  a.frame = true;
+  b.frame = true;
+  const data = JSON.parse(JSON.stringify(mm.Model.serialize()));
+  data.frames = [{ id: "f_legacy", nodes: [b.id], label: null }];
+
+  const mm2 = fresh().mm;
+  mm2.Model.deserialize(data);
+  assert.equal(mm2.Model.find(mm2.Model.root, a.id).frame, null, "旧 frame 标记被清除");
+  assert.equal(mm2.Model.frames.length, 2, "节点与旧 frames 合并去重");
+  assert.ok(mm2.Model.frames.some((f) => f.nodes.length === 1 && f.nodes[0] === a.id), "a 迁移为独立外框");
+  assert.ok(mm2.Model.frames.some((f) => f.nodes.length === 1 && f.nodes[0] === b.id && f.id === "f_legacy"), "b 复用既有外框不重复添加");
+  assert.equal(mm2.Model.find(mm2.Model.root, a1.id).frame, null, "子节点不受影响");
+});
+
+test("嵌套外框：大小框边框间留出间隔（标签计入外框）", () => {
+  const { mm } = fresh();
+  const { root } = treeFixture(mm);
+  const n1 = root.children[1];
+  const b1 = n1.children[0];
+  mm.Model.addFrame([n1.id, b1.id]);
+  mm.Model.frames[0].label = "大组";
+  mm.Model.addFrame([b1.id]);
+  mm.Model.frames[1].label = "小组";
+  mm.Layout.treeLayout(root, "right", THEME);
+  const vis = new Set(mm.Model.visibleNodes(root).map((n) => n.id));
+  const big = mm.Render.frameGeometry(mm.Model.frames[0], vis);
+  const small = mm.Render.frameGeometry(mm.Model.frames[1], vis);
+  const gapBottom = big.y + big.h - (small.y + small.h);
+  assert.equal(gapBottom, 14, "小框底边与大框底边间距 = FRAME_PAD");
+  const gapTop = small.y - big.y;
+  assert.equal(gapTop, 36, "小框顶边在大框顶边下方（含小框标签空间）");
+});
+
+test("多层嵌套外框：各级边框均保持 FRAME_PAD 间隔", () => {
+  const { mm } = fresh();
+  const { root } = treeFixture(mm);
+  const n1 = root.children[1];
+  const b1 = n1.children[0];
+  const b1a = b1.children[0];
+  mm.Model.addFrame([n1.id, b1.id]);
+  mm.Model.frames[0].label = "大组";
+  mm.Model.addFrame([b1.id, b1a.id]);
+  mm.Model.frames[1].label = "中组";
+  mm.Model.addFrame([b1a.id]);
+  mm.Model.frames[2].label = "小组";
+  mm.Layout.treeLayout(root, "right", THEME);
+  const vis = new Set(mm.Model.visibleNodes(root).map((n) => n.id));
+  const bs = mm.Model.frames.map((f) => mm.Render.frameGeometry(f, vis));
+  assert.equal(bs[0].y + bs[0].h - (bs[1].y + bs[1].h), 14, "大框底与中框底间隔 FRAME_PAD");
+  assert.equal(bs[1].y + bs[1].h - (bs[2].y + bs[2].h), 14, "中框底与小框底间隔 FRAME_PAD");
+  assert.ok(bs[2].y - 22 >= bs[0].y, "小框标签仍在大框内");
 });

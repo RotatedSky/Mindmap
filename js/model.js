@@ -280,8 +280,9 @@
 
   function change(fn) {
     pushHistory();
-    fn();
+    const r = fn();
     notify();
+    return r;
   }
 
   function undo() {
@@ -387,7 +388,11 @@
     for (const f of state.frames) {
       f.nodes = f.nodes.filter((id) => !subtree.has(id));
     }
-    state.frames = state.frames.filter((f) => f.nodes.length > 0);
+    state.frames = state.frames.filter((f) => {
+      if (f.nodes.length > 0) return true;
+      cleanupFrameRelations(f.id);
+      return false;
+    });
   }
 
   function moveNode(node, newParent) {
@@ -452,12 +457,24 @@
     return find(state.root, state.primary);
   }
 
-  function addRelation(fromId, toId) {
-    if (!fromId || !toId || fromId === toId) return null;
-    if (state.relations.some((r) => (r.from === fromId && r.to === toId))) return null;
+  function addRelation(fromId, toId, opts) {
+    const fromFrame = !!(opts && opts.fromFrame);
+    const toFrame = !!(opts && opts.toFrame);
+    if (!fromId || !toId) return null;
+    if (fromId === toId && fromFrame === toFrame) return null;
+    if (state.relations.some((r) =>
+      r.from === fromId && r.to === toId &&
+      !!r.fromFrame === fromFrame && !!r.toFrame === toFrame)) return null;
     const rel = { id: uid("r"), from: fromId, to: toId, label: null, color: null };
+    if (fromFrame) rel.fromFrame = true;
+    if (toFrame) rel.toFrame = true;
     state.relations.push(rel);
     return rel;
+  }
+
+  function cleanupFrameRelations(frameId) {
+    state.relations = state.relations.filter((r) =>
+      !(r.fromFrame && r.from === frameId) && !(r.toFrame && r.to === frameId));
   }
 
   function removeRelation(id) {
@@ -483,7 +500,21 @@
     return state.relations.filter((r) => r.from === nodeId || r.to === nodeId);
   }
 
+  function frameLegal(nodeIds) {
+    if (nodeIds.length < 2) return true;
+    const nodes = nodeIds.map((id) => find(state.root, id));
+    if (nodes.some((n) => !n)) return false;
+    for (const base of nodes) {
+      const chain = new Set();
+      for (let n = base; n; n = findParent(state.root, n.id)) chain.add(n.id);
+      if (nodes.every((n) => chain.has(n.id))) return true;
+    }
+    const p0 = findParent(state.root, nodes[0].id);
+    return nodes.every((n) => findParent(state.root, n.id) === p0);
+  }
+
   function addFrame(nodeIds) {
+    if (!frameLegal(nodeIds)) return null;
     const f = { id: uid("f"), nodes: nodeIds.slice(), label: null };
     state.frames.push(f);
     return f;
@@ -493,6 +524,7 @@
     const i = state.frames.findIndex((f) => f.id === id);
     if (i < 0) return false;
     state.frames.splice(i, 1);
+    cleanupFrameRelations(id);
     return true;
   }
 
@@ -550,11 +582,27 @@
     return { version: 1, root: state.root, relations: state.relations, frames: state.frames, settings: state.settings };
   }
 
+  function migrateNodeFrames() {
+    const framed = [];
+    for (const n of allNodes(state.root)) {
+      if (n.frame) {
+        n.frame = null;
+        framed.push(n.id);
+      }
+    }
+    for (const id of framed) {
+      if (!state.frames.some((f) => f.nodes.includes(id))) {
+        state.frames.push({ id: uid("f"), nodes: [id], label: null });
+      }
+    }
+  }
+
   function deserialize(obj) {
     if (!obj || !obj.root) return false;
     state.root = obj.root;
     state.relations = obj.relations || [];
     state.frames = obj.frames || [];
+    migrateNodeFrames();
     state.selection = new Set();
     state.primary = null;
     if (obj.settings) Object.assign(state.settings, obj.settings);
