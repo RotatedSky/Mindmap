@@ -3,6 +3,9 @@
 
   const M = (window.MM = window.MM || {});
 
+  const WELCOME_KEY = "mm.welcome.hidden.v1";
+
+
   const THEMES = [
     { id: "blue", name: "\u7ecf\u5178\u84dd", dot: "#2e6fb0" },
     { id: "green", name: "\u6e05\u65b0\u7eff", dot: "#3a9d5c" },
@@ -94,25 +97,53 @@
     modal({ title: "\u5feb\u6377\u952e\u8bf4\u660e", body: html, ok: "\u5173\u95ed" });
   }
 
+  function tplCard(t) {
+    return "<div class='tpl-card' data-tpl='" + t.id + "'><h4>" + t.name + "</h4><p>" + t.desc + "</p></div>";
+  }
+
+  function tplBody(extraHint) {
+    return (extraHint ? "<div class='m-hint'>" + extraHint + "</div>" : "") +
+      "<div class='tpl-grid'>" + M.Model.templates.map(tplCard).join("") +
+      "<div class='tpl-card tpl-blank' data-tpl=''><h4>\u7a7a\u767d\u8111\u56fe</h4><p>\u4ec5\u6839\u8282\u70b9\uff0c\u4ece\u96f6\u5f00\u59cb\u7ed8\u5236</p></div></div>";
+  }
+
+  function wireTpl(dlg) {
+    dlg.el.querySelectorAll(".tpl-card").forEach((card) => {
+      card.addEventListener("click", () => {
+        const tplId = card.getAttribute("data-tpl");
+        dlg.close();
+        if (!tplId) {
+          const root = M.Model.createNode("\u6839\u8282\u70b9");
+          M.Model.change(() => M.Model.replaceRoot(root));
+        } else {
+          M.Model.change(() => M.Model.applyTemplate(tplId));
+        }
+        syncControls();
+        M.Layout.layoutAll();
+        M.Render.render();
+        M.Render.fit();
+      });
+    });
+  }
+
   function showNewDialog() {
     const dlg = modal({
       title: "\u65b0\u5efa\u8111\u56fe",
-      body: "<div class='m-hint'>\u5c06\u66ff\u6362\u5f53\u524d\u8111\u56fe\u5185\u5bb9\uff0c\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002</div>" +
-        "<div class='m-row'><button class='m-option' id='new-sample'>\u793a\u4f8b\u6a21\u677f\uff08\u63a8\u8350\uff09</button></div>" +
-        "<div class='m-row'><button class='m-option' id='new-blank'>\u7a7a\u767d\u6a21\u677f\uff08\u4ec5\u6839\u8282\u70b9\uff09</button></div>",
+      body: tplBody("\u5c06\u66ff\u6362\u5f53\u524d\u8111\u56fe\u5185\u5bb9\uff0c\u6b64\u64cd\u4f5c\u4e0d\u53ef\u64a4\u9500\u3002"),
       ok: "\u53d6\u6d88"
     });
-    dlg.el.querySelector("#new-sample").addEventListener("click", () => {
-      dlg.close();
-      M.Model.change(() => M.Model.replaceRoot(M.Model.sampleRoot()));
-      M.Render.fit();
+    wireTpl(dlg);
+  }
+
+  function showWelcome() {
+    const dlg = modal({
+      title: "\u6b22\u8fce\u4f7f\u7528\u8111\u56fe\u5de5\u5177",
+      body: "<div class='m-hint'>\u9009\u62e9\u4e00\u4e2a\u6a21\u677f\u5f00\u59cb\uff0c\u6216\u76f4\u63a5\u521b\u5efa\u7a7a\u767d\u8111\u56fe\u3002\u5411\u4e0a\u62d6\u52a8\u7a7a\u767d\u533a\u57df\u53ef\u5e73\u79fb\u753b\u5e03\uff0c\u6eda\u8f6e\u53ef\u7f29\u653e\u3002</div>" +
+        tplBody(""),
+      ok: "\u6682\u4e0d\uff0c\u5148\u770b\u770b\u793a\u4f8b"
     });
-    dlg.el.querySelector("#new-blank").addEventListener("click", () => {
-      dlg.close();
-      const root = M.Model.createNode("\u6839\u8282\u70b9");
-      M.Model.change(() => M.Model.replaceRoot(root));
-      M.Render.fit();
-    });
+    dlg.el.addEventListener("click", () => localStorage.setItem(WELCOME_KEY, "1"));
+    wireTpl(dlg);
   }
 
   function showImportDialog() {
@@ -343,6 +374,14 @@
     M.Layout.layoutAll();
     M.Render.render();
     M.Render.fit();
+    M.Math.fontsReady()
+      .then(() => M.Math.precache())
+      .then(() => {
+        M.Layout.layoutAll();
+        M.Render.render();
+      });
+
+    if (!localStorage.getItem(WELCOME_KEY)) showWelcome();
 
     M.Model.onChange = onModelChange;
 
@@ -361,5 +400,5 @@
     init();
   }
 
-  M.App = { init, toast, modal, showHelp };
+  M.App = { init, toast, modal, showHelp, showWelcome, showNewDialog };
 })();

@@ -1,10 +1,12 @@
-const CACHE = "mindmap-v3";
+const CACHE = "mindmap-v4";
 
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./css/style.css",
+  "./vendor/katex/katex.min.js",
+  "./vendor/katex/katex.min.css",
   "./js/model.js",
   "./js/math.js",
   "./js/layout.js",

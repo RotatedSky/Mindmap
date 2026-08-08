@@ -3,6 +3,8 @@
 
   const M = (window.MM = window.MM || {});
 
+  const CACHE = new Map();
+
   const FONT = '"Georgia", "Times New Roman", "Noto Serif CJK SC", serif';
 
   const GREEK = {
@@ -31,6 +33,48 @@
     emptyset: "\u2205", angle: "\u2220", degree: "\u00b0", perp: "\u22a5",
     parallel: "\u2225", sqrt: null, frac: null
   };
+
+  function katex() {
+    return window.katex || null;
+  }
+
+  function hasRealDom() {
+    const el = document.createElement("div");
+    return typeof el.getBoundingClientRect === "function";
+  }
+
+  function renderToString(str, fs) {
+    return katex().renderToString(str, {
+      displayMode: false,
+      throwOnError: false,
+      output: "html"
+    });
+  }
+
+  function measureReal(str, fs) {
+    const key = str + "@" + fs;
+    const fontsReady = !document.fonts || document.fonts.status === "loaded";
+    if (fontsReady && CACHE.has(key)) return CACHE.get(key);
+    const box = document.createElement("div");
+    box.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;font-size:" + fs + "px;font-family:" + FONT + ";line-height:0;";
+    box.innerHTML = renderToString(str, fs);
+    document.body.appendChild(box);
+    let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    for (const el of box.querySelectorAll("*")) {
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height || r.width > 500) continue;
+      minX = Math.min(minX, r.x);
+      minY = Math.min(minY, r.y);
+      maxX = Math.max(maxX, r.x + r.width);
+      maxY = Math.max(maxY, r.y + r.height);
+    }
+    const w = maxX > minX ? maxX - minX : 0;
+    const h = maxY > minY ? maxY - minY : 0;
+    document.body.removeChild(box);
+    const m = { w, h };
+    if (fontsReady) CACHE.set(key, m);
+    return m;
+  }
 
   const ctx = document.createElement("canvas").getContext("2d");
 
@@ -215,38 +259,92 @@
     return { w: 0, ascent: fs * 0.75, descent: fs * 0.2 };
   }
 
-  function width(tree, fs) {
-    return measureBox(tree, fs || 16).w;
+  function measureStub(str, fs) {
+    const tree = typeof str === "string" ? parse(str) : str;
+    const m = measureBox(tree, fs || 16);
+    return { w: m.w, ascent: m.ascent, descent: m.descent };
   }
 
-  function height(tree, fs) {
-    const m = measureBox(tree, fs || 16);
+  function width(str, fs) {
+    if (!str) return 0;
+    const f = fs || 16;
+    if (typeof str === "string" && hasRealDom()) return measureReal(str, f).w;
+    return measureStub(str, f).w;
+  }
+
+  function height(str, fs) {
+    const f = fs || 16;
+    if (typeof str === "string" && hasRealDom()) {
+      const m = measureReal(str, f);
+      return { ascent: m.h * 0.72, descent: m.h * 0.28 };
+    }
+    const m = measureStub(str, f);
     return { ascent: m.ascent, descent: m.descent };
   }
 
+  function fontsReady() {
+    if (document.fonts && document.fonts.ready) return document.fonts.ready;
+    return Promise.resolve();
+  }
+
+  function render(g, str, fs, color, x, y) {
+    const s = typeof str === "string" ? str : "";
+    const f = fs || 16;
+    if (hasRealDom() && katex()) {
+      const html = renderToString(s, f);
+      const w = measureReal(s, f).w;
+      const hh = height(s, f);
+      const h = hh.ascent + hh.descent + 2;
+      const top = y - hh.ascent;
+      const fo = svgEl("foreignObject", {
+        x: x, y: top,
+        width: w, height: h,
+        "pointer-events": "none"
+      }, g);
+      const div = svgEl("div", {
+        xmlns: "http://www.w3.org/1999/xhtml",
+        style: "font-size:" + f + "px;font-family:" + FONT + ";line-height:0;"
+      }, fo);
+      div.innerHTML = html;
+      return fo;
+    }
+    drawFallback(g, parse(s), f, x, y, color);
+  }
+
   function svgEl(tag, attrs, parent) {
-    const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    const ns = tag === "div" ? "http://www.w3.org/1999/xhtml" : "http://www.w3.org/2000/svg";
+    const el = document.createElementNS(ns, tag);
     for (const k in attrs) el.setAttribute(k, attrs[k]);
     if (parent) parent.appendChild(el);
     return el;
   }
 
-  function drawText(g, str, fs, x, y, color) {
-    const t = svgEl("text", {
+  function drawText(g, str, fs, x, y, color, italic) {
+    const attrs = {
       x: Math.round(x * 100) / 100,
       y: Math.round(y * 100) / 100,
       "font-size": fs,
       "font-family": FONT,
       "text-anchor": "start",
       fill: color
-    }, g);
+    };
+    if (italic) attrs["font-style"] = "italic";
+    const t = svgEl("text", attrs, g);
     t.textContent = str;
     return t;
   }
 
+  function isItalicAtom(str) {
+    return str.length === 1 && /[a-zA-Z]/.test(str);
+  }
+
   function drawBox(g, box, fs, x, y, color) {
-    if (box.type === "atom" || box.type === "text") {
-      drawText(g, box.str, fs, x, y, color);
+    if (box.type === "atom") {
+      drawText(g, box.str, fs, x, y, color, isItalicAtom(box.str));
+      return;
+    }
+    if (box.type === "text") {
+      drawText(g, box.str, fs, x, y, color, false);
       return;
     }
     if (box.type === "space") return;
@@ -265,10 +363,11 @@
       const bx = x + b.w;
       if (box.sup) {
         const sup = measureBox(box.sup, sfs);
-        drawBox(g, box.sup, sfs, bx, y - b.ascent - sup.descent * 0.4 - fs * 0.1, color);
+        drawBox(g, box.sup, sfs, bx, y - b.ascent - sup.ascent * 0.25, color);
       }
       if (box.sub) {
-        drawBox(g, box.sub, sfs, bx, y + b.descent + sfs * 0.45, color);
+        const sub = measureBox(box.sub, sfs);
+        drawBox(g, box.sub, sfs, bx, y + b.descent + sub.descent * 0.8, color);
       }
       return;
     }
@@ -282,7 +381,7 @@
       const dw = measureBox(box.den, sfs).w;
       drawBox(g, box.num, sfs, x + (w - nw) / 2, y - gap - n.descent, color);
       svgEl("rect", {
-        x: x, y: y - 0.5, width: w, height: 1,
+        x: x, y: y - 0.6, width: w, height: 1.2,
         fill: color
       }, g);
       drawBox(g, box.den, sfs, x + (w - dw) / 2, y + gap + d.ascent, color);
@@ -293,19 +392,36 @@
       const body = measureBox(box.body, fs);
       const rad = measure("\u221a", rfs);
       const overY = y - body.ascent - fs * 0.05;
-      drawText(g, "\u221a", rfs, x, y - body.ascent * 0.24, color);
-      drawBox(g, box.body, fs, x + rad.w, y, color);
-      svgEl("line", {
-        x1: x + rad.w + fs * 0.05, y1: overY, x2: x + rad.w + body.w + fs * 0.1, y2: overY,
-        stroke: color, "stroke-width": 1
+      const radX = x;
+      drawText(g, "\u221a", rfs, radX, overY + rad.ascent, color, false);
+      const tick = fs * 0.14;
+      const lineEnd = x + rad.w + body.w + fs * 0.14;
+      svgEl("path", {
+        d: "M " + (radX + rad.w + fs * 0.06) + " " + overY +
+          " L " + lineEnd + " " + overY +
+          " L " + lineEnd + " " + (overY + tick),
+        fill: "none", stroke: color, "stroke-width": 1.1
       }, g);
+      drawBox(g, box.body, fs, x + rad.w, y, color);
       return;
     }
   }
 
-  function render(g, tree, fs, color, x, y) {
+  function drawFallback(g, tree, fs, x, y, color) {
     drawBox(g, tree, fs, x, y, color);
   }
 
-  M.Math = { parse, width, height, render };
+  function precache() {
+    if (!hasRealDom() || !katex()) return Promise.resolve();
+    const box = document.createElement("div");
+    box.style.cssText = "position:absolute;visibility:hidden;left:-9999px;top:0;";
+    box.innerHTML = renderToString("\\frac{a}{b}", 16);
+    document.body.appendChild(box);
+    return document.fonts.ready.then(() => {
+      document.body.removeChild(box);
+      CACHE.clear();
+    });
+  }
+
+  M.Math = { parse, width, height, render, fontsReady, precache, isReady: () => !!katex() };
 })();

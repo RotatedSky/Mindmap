@@ -72,7 +72,7 @@
 
   function partWidth(p, font) {
     if (p.type === "text") return measureText(p.str, font);
-    return M.Math.width(p.tree, fontFs(font));
+    return M.Math.width(p.str, fontFs(font));
   }
 
   function splitParts(text) {
@@ -106,7 +106,7 @@
     };
     for (const p of splitParts(text)) {
       if (p.type === "math") {
-        const w = M.Math.width(p.tree, fontFs(font));
+        const w = M.Math.width(p.str, fontFs(font));
         if (cur.length && cw + w > maxW) flush();
         cur.push(p);
         cw += w;
@@ -149,7 +149,7 @@
       let lh2 = lh;
       for (const p of l) {
         if (p.type === "math") {
-          const hh = M.Math.height(p.tree, fs);
+          const hh = M.Math.height(p.str, fs);
           lh2 = Math.max(lh2, hh.ascent + hh.descent + 2);
         }
       }

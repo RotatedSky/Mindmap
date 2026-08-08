@@ -304,6 +304,15 @@ button.icon-btn { padding: 5px 8px; line-height: 1; }
 .modal .m-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .modal .m-hint { font-size: 12px; color: var(--ui-muted); margin-top: 8px; line-height: 1.6; }
 .modal .m-option { flex: 1; padding: 8px 10px; font-size: 13px; }
+.tpl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+.tpl-card {
+  border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px 14px;
+  cursor: pointer; transition: border-color .15s, background .15s, transform .1s;
+}
+.tpl-card:hover { border-color: var(--ui-accent); background: var(--ui-hover); transform: translateY(-1px); }
+.tpl-card h4 { font-size: 14px; margin: 0 0 4px; }
+.tpl-card p { font-size: 12px; color: var(--ui-muted); margin: 0; line-height: 1.6; }
+.tpl-card.tpl-blank { border-style: dashed; }
 table.shortcuts { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.shortcuts td { padding: 5px 8px; border-bottom: 1px solid var(--panel-border); }
 table.shortcuts td:first-child { color: var(--ui-muted); white-space: nowrap; }

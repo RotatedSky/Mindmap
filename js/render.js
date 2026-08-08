@@ -127,7 +127,7 @@
       let lh2 = lh;
       for (const p of line) {
         if (p.type === "math") {
-          const hh = M.Math.height(p.tree, fs);
+          const hh = M.Math.height(p.str, fs);
           lh2 = Math.max(lh2, hh.ascent + hh.descent + 2);
         }
       }
@@ -153,7 +153,7 @@
         let mA = 0, mD = 0;
         for (const p of line) {
           if (p.type !== "math") continue;
-          const hh = M.Math.height(p.tree, fs);
+          const hh = M.Math.height(p.str, fs);
           if (hh.ascent > mA) mA = hh.ascent;
           if (hh.descent > mD) mD = hh.descent;
         }
@@ -177,7 +177,7 @@
       }
       let lineW = 0;
       for (const p of line) {
-        lineW += p.type === "text" ? M.Layout.measureText(p.str, font) : M.Math.width(p.tree, fs);
+        lineW += p.type === "text" ? M.Layout.measureText(p.str, font) : M.Math.width(p.str, fs);
       }
       let cx = -lineW / 2;
       for (const p of line) {
@@ -193,8 +193,8 @@
           t.textContent = p.str;
           cx += M.Layout.measureText(p.str, font);
         } else {
-          M.Math.render(grp, p.tree, fs, textFill, cx, yBase);
-          cx += M.Math.width(p.tree, fs);
+          M.Math.render(grp, p.str, fs, textFill, cx, yBase);
+          cx += M.Math.width(p.str, fs);
         }
       }
     }
