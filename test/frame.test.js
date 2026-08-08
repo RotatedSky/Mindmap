@@ -187,8 +187,8 @@ test("有标签的外框不改变外框与成员布局，仅上方兄弟让出�
   assert.equal(x.y + x.h / 2, m1.y - m1.h / 2 - mm.Layout.FRAME_MARGIN - mm.Layout.FRAME_PAD - mm.Layout.FRAME_LABEL_TOP,
     "上方兄弟让出标签高度空间");
 
-  const labelTop = labeled.y - 12 - 10;
-  const labelBot = labeled.y - 12 + 10;
+  const labelTop = labeled.y - 4 - 10;
+  const labelBot = labeled.y - 4 + 10;
   assert.ok(labelBot <= m1.y - m1.h / 2 - 2, "标签底不压成员节点");
   assert.ok(labelTop >= x.y + x.h / 2 + mm.Layout.FRAME_MARGIN - 1, "标签顶与上方兄弟有间距");
 });
@@ -343,7 +343,7 @@ test("嵌套外框：大小框边框间留出间隔（标签计入外框）", ()
   const gapBottom = big.y + big.h - (small.y + small.h);
   assert.equal(gapBottom, 14, "小框底边与大框底边间距 = FRAME_PAD");
   const gapTop = small.y - big.y;
-  assert.equal(gapTop, 36, "小框顶边在大框顶边下方（含小框标签空间）");
+  assert.equal(gapTop, 28, "小框顶边在大框顶边下方（含小框标签外露 FRAME_LABEL_TOP + FRAME_PAD）");
 });
 
 test("多层嵌套外框：各级边框均保持 FRAME_PAD 间隔", () => {
@@ -363,5 +363,43 @@ test("多层嵌套外框：各级边框均保持 FRAME_PAD 间隔", () => {
   const bs = mm.Model.frames.map((f) => mm.Render.frameGeometry(f, vis));
   assert.equal(bs[0].y + bs[0].h - (bs[1].y + bs[1].h), 14, "大框底与中框底间隔 FRAME_PAD");
   assert.equal(bs[1].y + bs[1].h - (bs[2].y + bs[2].h), 14, "中框底与小框底间隔 FRAME_PAD");
-  assert.ok(bs[2].y - 22 >= bs[0].y, "小框标签仍在大框内");
+  assert.ok(bs[2].y - mm.Layout.FRAME_LABEL_TOP >= bs[0].y, "小框标签仍在大框内");
+});
+
+test("旧数据成员同序异互含的框不爆栈且几何有限", () => {
+  const { mm } = fresh();
+  const { root, a, b } = treeFixture(mm);
+  mm.Model.frames.push({ id: "fx_dup1", nodes: [a.id, b.id], label: null });
+  mm.Model.frames.push({ id: "fx_dup2", nodes: [b.id, a.id], label: null });
+  mm.Layout.treeLayout(root, "right", THEME);
+  const vis = new Set(mm.Model.visibleNodes(root).map((n) => n.id));
+  const bs = mm.Model.frames.map((f) => mm.Render.frameGeometry(f, vis));
+  for (const g of bs) {
+    assert.ok(g && Number.isFinite(g.x) && Number.isFinite(g.y) && g.w > 0 && g.h > 0);
+  }
+});
+
+test("兄弟嵌套分支 pad 独立计入（pill 不穿出外层框）", () => {
+  const { mm } = fresh();
+  const { root } = treeFixture(mm);
+  const n89 = root.children[1];
+  const n573 = n89.children[0];
+  const n922 = n573.children[0];
+  const n276 = mm.Model.addChild(n922, "n276");
+  const n760 = mm.Model.addChild(n922, "n760");
+  const f27 = mm.Model.addFrame([n922.id]);
+  mm.Model.setFrameLabel(f27.id, "L59");
+  const f28 = mm.Model.addFrame([n922.id, n276.id, n573.id]);
+  mm.Model.setFrameLabel(f28.id, "L46");
+  const f29 = mm.Model.addFrame([n760.id, n276.id]);
+  mm.Model.setFrameLabel(f29.id, "L39");
+  const f30 = mm.Model.addFrame([n922.id, n89.id]);
+  mm.Layout.treeLayout(root, "right", THEME);
+  assert.equal(mm.Layout.framePadTop(f27.id), 42, "含兄弟子框分支：14+14+14");
+  assert.equal(mm.Layout.framePadTop(f28.id), 70, "含 f27 及其标签：42+14+14");
+  assert.equal(mm.Layout.framePadTop(f30.id), 98, "嵌套分支递归独立：70+14+14");
+  const vis = new Set(mm.Model.visibleNodes(root).map((n) => n.id));
+  const gInn = mm.Render.frameGeometry(f28, vis);
+  const gOut = mm.Render.frameGeometry(f30, vis);
+  assert.ok(gInn.y - mm.Layout.FRAME_LABEL_TOP >= gOut.y, "内框标签 pill 不穿出外框顶边");
 });

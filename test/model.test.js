@@ -246,6 +246,36 @@ test("frames 增删改与删除节点时清理", () => {
   assert.equal(mm.Model.frames.length, 0);
 });
 
+test("addFrame 拒绝重复成员框（不同顺序）", () => {
+  const { mm, root } = freshRoot();
+  const a = mm.Model.addChild(root, "a");
+  const b = mm.Model.addChild(a, "b");
+  mm.Model.addFrame([a.id, b.id]);
+  const dup = mm.Model.addFrame([b.id, a.id]);
+  assert.equal(dup, null);
+  assert.equal(mm.Model.frames.length, 1);
+});
+
+test("addFrame 拒绝被现有框完全覆盖的框", () => {
+  const { mm, root } = freshRoot();
+  const a = mm.Model.addChild(root, "a");
+  const b = mm.Model.addChild(a, "b");
+  mm.Model.addFrame([a.id]);
+  const covered = mm.Model.addFrame([a.id, b.id]);
+  assert.equal(covered, null);
+  assert.equal(mm.Model.frames.length, 1);
+});
+
+test("addFrame 允许完全在现有框内部的嵌套框", () => {
+  const { mm, root } = freshRoot();
+  const a = mm.Model.addChild(root, "a");
+  const b = mm.Model.addChild(a, "b");
+  mm.Model.addFrame([a.id, b.id]);
+  const inner = mm.Model.addFrame([b.id]);
+  assert.ok(inner);
+  assert.equal(mm.Model.frames.length, 2);
+});
+
 test("serialize/deserialize 往返一致", () => {
   const { mm } = fresh();
   const root = mm.Model.root;

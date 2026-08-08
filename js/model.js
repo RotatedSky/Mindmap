@@ -515,9 +515,31 @@
 
   function addFrame(nodeIds) {
     if (!frameLegal(nodeIds)) return null;
+    const idset = new Set(nodeIds);
+    for (const f of state.frames) {
+      const shared = nodeIds.some((id) => f.nodes.includes(id));
+      if (!shared) continue;
+      const a = coveredBy(idset, f.nodes);
+      const b2 = coveredBy(f.nodes, idset);
+      if (a === b2) return null;
+    }
     const f = { id: uid("f"), nodes: nodeIds.slice(), label: null };
     state.frames.push(f);
     return f;
+  }
+
+  function coveredBy(setA, setB) {
+    const b = setB instanceof Set ? setB : new Set(setB);
+    for (const id of setA) {
+      let n = find(state.root, id);
+      let ok = false;
+      while (n) {
+        if (b.has(n.id)) { ok = true; break; }
+        n = findParent(state.root, n.id);
+      }
+      if (!ok) return false;
+    }
+    return true;
   }
 
   function removeFrame(id) {

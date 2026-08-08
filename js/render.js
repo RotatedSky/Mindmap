@@ -480,7 +480,7 @@
       const lw = M.Layout.measureText(f.label, font) + 16;
       const lg = svgEl("g", {
         class: "frame-label", "data-id": f.id,
-        transform: "translate(" + (geo.x + 10) + " " + (geo.y - 12) + ")", cursor: "pointer"
+        transform: "translate(" + (geo.x + 10) + " " + (geo.y - 4) + ")", cursor: "pointer"
       }, g);
       svgEl("rect", {
         x: 0, y: -10, width: lw, height: 20, rx: 10,
@@ -507,7 +507,7 @@
       el.setAttribute("height", geo.h);
     }
     const lg = svg.el.querySelector('g.frame-label[data-id="' + f.id + '"]');
-    if (lg) lg.setAttribute("transform", "translate(" + (geo.x + 10) + " " + (geo.y - 12) + ")");
+    if (lg) lg.setAttribute("transform", "translate(" + (geo.x + 10) + " " + (geo.y - 4) + ")");
   }
 
   function renderTreeInto(g, opts) {

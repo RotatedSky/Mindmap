@@ -1180,13 +1180,16 @@
       if (selCount > 1) {
         add("\u2610\u2002\u6dfb\u52a0\u5916\u6846\uff08" + selCount + " \u4e2a\u8282\u70b9\uff09", () => toggleGroupFrame());
       } else {
-        add(frameOf ? "\u274c\u2002\u79fb\u9664\u5916\u6846" : "\u2610\u2002\u6dfb\u52a0\u5916\u6846", () => {
-          M.Model.change(() => {
-            if (frameOf) M.Model.removeFrame(frameOf.id);
-            else M.Model.addFrame([node.id]);
-          });
+        add("\u2610\u2002\u6dfb\u52a0\u5916\u6846", () => {
+          M.Model.change(() => M.Model.addFrame([node.id]));
           M.Render.render();
         });
+        if (frameOf) {
+          add("\u274c\u2002\u79fb\u9664\u5916\u6846", () => {
+            M.Model.change(() => M.Model.removeFrame(frameOf.id));
+            M.Render.render();
+          });
+        }
       }      if (node.image) add("\ud83d\uddbc\u2002\u66ff\u6362\u56fe\u7247", () => pickImage(node));
       else add("\ud83d\uddbc\u2002\u6dfb\u52a0\u56fe\u7247", () => pickImage(node));
       if (node.image) add("\u274c\u2002\u79fb\u9664\u56fe\u7247", () => {

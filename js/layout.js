@@ -8,7 +8,7 @@
   const FRAME_PAD = 14;
   const FRAME_MARGIN = 10;
   const FRAME_SPACING = 24;
-  const FRAME_LABEL_TOP = 22;
+  const FRAME_LABEL_TOP = 14;
   const PAD_X = 18;
   const PAD_Y = 10;
   const MAX_W = 260;
@@ -232,61 +232,72 @@
     return f && f.label ? FRAME_LABEL_TOP : 0;
   }
 
+  function withinFrame(f2, f) {
+    for (const id of f2.nodes) {
+      let n = M.Model.find(M.Model.root, id);
+      let inside = false;
+      while (n) {
+        if (f.nodes.includes(n.id)) { inside = true; break; }
+        n = M.Model.findParent(M.Model.root, n.id);
+      }
+      if (!inside) return false;
+    }
+    return true;
+  }
+
   function nestedFrames(f) {
     const out = [];
     for (const f2 of M.Model.frames) {
       if (f2 === f || !f2.nodes.length) continue;
-      let all = true;
-      for (const id of f2.nodes) {
-        let n = M.Model.find(M.Model.root, id);
-        let inside = false;
-        while (n) {
-          if (f.nodes.includes(n.id)) { inside = true; break; }
-          n = M.Model.findParent(M.Model.root, n.id);
-        }
-        if (!inside) { all = false; break; }
-      }
-      if (all) out.push(f2);
+      if (withinFrame(f2, f) && !withinFrame(f, f2)) out.push(f2);
     }
     return out;
   }
 
-  function framePadLeft(fid) {
+  function framePadLeft(fid, seen) {
     const f = M.Model.frames.find((x) => x.id === fid);
     let pad = FRAME_PAD;
-    if (!f) return pad;
+    if (!f || (seen && seen.has(fid))) return pad;
+    seen = seen ? new Set(seen) : new Set();
+    seen.add(fid);
     for (const f2 of nestedFrames(f)) {
-      pad = Math.max(pad, framePadLeft(f2.id) + FRAME_PAD);
+      pad = Math.max(pad, framePadLeft(f2.id, seen) + FRAME_PAD);
     }
     return pad;
   }
 
-  function framePadRight(fid) {
+  function framePadRight(fid, seen) {
     const f = M.Model.frames.find((x) => x.id === fid);
     let pad = FRAME_PAD;
-    if (!f) return pad;
+    if (!f || (seen && seen.has(fid))) return pad;
+    seen = seen ? new Set(seen) : new Set();
+    seen.add(fid);
     for (const f2 of nestedFrames(f)) {
-      pad = Math.max(pad, framePadRight(f2.id) + FRAME_PAD);
+      pad = Math.max(pad, framePadRight(f2.id, seen) + FRAME_PAD);
     }
     return pad;
   }
 
-  function framePadTop(fid) {
+  function framePadTop(fid, seen) {
     const f = M.Model.frames.find((x) => x.id === fid);
     let pad = FRAME_PAD;
-    if (!f) return pad;
+    if (!f || (seen && seen.has(fid))) return pad;
+    seen = seen ? new Set(seen) : new Set();
+    seen.add(fid);
     for (const f2 of nestedFrames(f)) {
-      pad = Math.max(pad, framePadTop(f2.id) + frameLabelTop(f2.id) + FRAME_PAD);
+      pad = Math.max(pad, framePadTop(f2.id, seen) + frameLabelTop(f2.id) + FRAME_PAD);
     }
     return pad;
   }
 
-  function framePadBot(fid) {
+  function framePadBot(fid, seen) {
     const f = M.Model.frames.find((x) => x.id === fid);
     let pad = FRAME_PAD;
-    if (!f) return pad;
+    if (!f || (seen && seen.has(fid))) return pad;
+    seen = seen ? new Set(seen) : new Set();
+    seen.add(fid);
     for (const f2 of nestedFrames(f)) {
-      pad = Math.max(pad, framePadBot(f2.id) + FRAME_PAD);
+      pad = Math.max(pad, framePadBot(f2.id, seen) + FRAME_PAD);
     }
     return pad;
   }

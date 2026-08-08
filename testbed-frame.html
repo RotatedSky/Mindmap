@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body { margin: 0; background: #fff; }
+  #mm-svg { width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+<svg id="mm-svg"></svg>
+<script src="js/model.js"></script>
+<script src="vendor/katex/katex.min.js"></script>
+<script src="js/math.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/render.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/search.js"></script>
+<script src="js/outline.js"></script>
+<script src="js/notes.js"></script>
+<script src="js/markdown.js"></script>
+<script src="js/exporter.js"></script>
+<script src="js/storage.js"></script>
+<script>
+  try {
+  const M = window.MM;
+  const root = M.Model.createNode("Root");
+  const a = M.Model.addChild(root, "Node A");
+  const b = M.Model.addChild(root, "Node B");
+  const c = M.Model.addChild(root, "Node C");
+  M.Model.addChild(a, "A1");
+  M.Model.addChild(a, "A2");
+  M.Model.replaceRoot(root);
+
+  M.Model.addFrame([a.id]);
+  const f1 = M.Model.frames[M.Model.frames.length - 1];
+  M.Model.setFrameLabel(f1.id, "single");
+
+  M.Model.addFrame([b.id, c.id]);
+  const f2 = M.Model.frames[M.Model.frames.length - 1];
+  M.Model.setFrameLabel(f2.id, "multi");
+
+  const theme = M.Theme.get();
+  M.Layout.treeLayout(root, "right", theme);
+  M.Render.init(document.getElementById("mm-svg"));
+  M.Render.render();
+
+  const vis = new Set(M.Model.visibleNodes(root).map((n) => n.id));
+  const out = { nodes: {}, frames: {} };
+  for (const n of M.Model.visibleNodes(root)) {
+    out.nodes[n.text] = { x: n.x, y: n.y, w: n.w, h: n.h };
+  }
+  for (const f of M.Model.frames) {
+    out.frames[f.label] = M.Render.frameGeometry(f, vis);
+  }
+  document.title = JSON.stringify(out);
+  } catch (err) {
+    document.title = "ERROR: " + err.message + " | " + err.stack;
+  }
+</script>
+</body>
+</html>
