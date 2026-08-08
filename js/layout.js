@@ -175,11 +175,13 @@
       let set = null;
       const own = memberIds.get(n.id);
       if (own) set = new Set(own);
-      for (const c of n.children) {
-        const cs = walk(c);
-        if (cs) {
-          if (!set) set = new Set();
-          for (const fid of cs) set.add(fid);
+      if (!n.collapsed) {
+        for (const c of n.children) {
+          const cs = walk(c);
+          if (cs) {
+            if (!set) set = new Set();
+            for (const fid of cs) set.add(fid);
+          }
         }
       }
       if (set) idx.set(n.id, set);

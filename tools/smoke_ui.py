@@ -51,7 +51,7 @@ def main():
         page.locator(".tpl-card.tpl-blank").click()
         page.wait_for_timeout(300)
 
-        js = lambda expr: page.evaluate(expr)
+        js = lambda expr, arg=None: page.evaluate(expr, arg)
         check(bool(js("!!window.MM && !!MM.Model.root")), "根节点就绪")
         js("""
           const M = window.MM;
@@ -64,6 +64,8 @@ def main():
           M.Layout.layoutAll();
           M.Render.render();
         """)
+
+        ids = js("(() => { const r = MM.Model.root; const k1 = r.children[0]; const k1a = k1.children[0]; return { k1: k1.id, k1a: k1a.id }; })()")
 
         root_id = js("MM.Model.root.id")
         node_sel = 'g.node[data-id="%s"]' % root_id
@@ -94,6 +96,43 @@ def main():
         page.wait_for_timeout(100)
         check(js("MM.Model.frames.length") == 1, "多选 2 节点添加外框 frames=1")
         check(js("MM.Model.frames[0].nodes.length") == 2, "外框成员数为 2")
+
+        js("""
+          (ids2) => {
+            const M = window.MM;
+            M.Model.change(() => {
+              for (const f of M.Model.frames.slice()) M.Model.removeFrame(f.id);
+              M.Model.addFrame([ids2.k1, ids2.k1a]);
+              M.Model.addFrame([ids2.k1a]);
+              M.Model.addRelation(M.Model.root.id, ids2.k1, {});
+            });
+            M.Layout.layoutAll();
+            M.Render.render();
+          }
+        """, ids)
+        rel_id = js("MM.Model.relations[0].id")
+        page.locator('.rel-hit[data-id="%s"]' % rel_id).click()
+        page.wait_for_timeout(100)
+        handle = page.locator('.rel-handle[data-id="%s"][data-pt="to"]' % rel_id)
+        check(handle.count() == 1, "选中关联线显示 to 端点")
+        hb = handle.bounding_box()
+        target = js("""
+          () => {
+            const M = window.MM;
+            const inn = M.Model.frames[1];
+            const vis = new Set(M.Model.visibleNodes(M.Model.root).map(n => n.id));
+            const g = M.Render.frameGeometry(inn, vis);
+            return M.Render.worldToScreen(g.x + g.w - 6, g.y + g.h - 6);
+          }
+        """)
+        page.mouse.move(hb["x"] + hb["width"] / 2, hb["y"] + hb["height"] / 2)
+        page.mouse.down()
+        page.mouse.move(target["x"], target["y"], steps=8)
+        page.wait_for_timeout(100)
+        page.mouse.up()
+        page.wait_for_timeout(150)
+        check(js("MM.Model.relations[0].toFrame === true && MM.Model.relations[0].to === MM.Model.frames[1].id"),
+              "拖拽端点命中最内层外框（非最外层）")
 
         page.goto("http://127.0.0.1:%d/testbed-frame.html" % PORT)
         page.wait_for_function("document.title.indexOf('{') === 0")

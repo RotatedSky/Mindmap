@@ -111,13 +111,7 @@
   }
 
   function hitFrameForRel(wx, wy, excludeId) {
-    const vis = new Set(M.Model.visibleNodes(M.Model.root).map((n) => n.id));
-    for (const f of M.Model.frames) {
-      if (f.id === excludeId) continue;
-      const g = M.Render.frameGeometry(f, vis);
-      if (g && wx >= g.x && wx <= g.x + g.w && wy >= g.y && wy <= g.y + g.h) return f;
-    }
-    return null;
+    return M.Render.hitFrame(wx, wy, excludeId);
   }
 
   function selectRelation(id) {

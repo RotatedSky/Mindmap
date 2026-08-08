@@ -494,6 +494,20 @@
     }
   }
 
+  function hitFrame(wx, wy, excludeId) {
+    const vis = new Set(M.Model.visibleNodes(M.Model.root).map((n) => n.id));
+    let best = null, bestArea = Infinity;
+    for (const f of M.Model.frames) {
+      if (f.id === excludeId) continue;
+      const g = frameGeometry(f, vis);
+      if (g && wx >= g.x && wx <= g.x + g.w && wy >= g.y && wy <= g.y + g.h) {
+        const area = g.w * g.h;
+        if (area < bestArea) { best = f; bestArea = area; }
+      }
+    }
+    return best;
+  }
+
   function updateFrame(f) {
     const visible = M.Model.visibleNodes(M.Model.root);
     const geo = frameGeometry(f, new Set(visible.map((n) => n.id)));
@@ -701,6 +715,7 @@
     render, renderTreeInto, applySelectionClasses,
     setTransform, worldToScreen, screenToWorld, fit, centerOn,
     toSVGString, updateFreeDrag, updateRelation, relationGeometry, bezierPoint, frameGeometry, footprintOf,
+    hitFrame,
     get view() { return svg; }
   };
 })();

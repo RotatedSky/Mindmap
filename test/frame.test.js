@@ -403,3 +403,43 @@ test("兄弟嵌套分支 pad 独立计入（pill 不穿出外层框）", () => {
   const gOut = mm.Render.frameGeometry(f30, vis);
   assert.ok(gInn.y - mm.Layout.FRAME_LABEL_TOP >= gOut.y, "内框标签 pill 不穿出外框顶边");
 });
+
+test("hitFrame 嵌套时命中最小（最内层）外框", () => {
+  const { mm } = fresh();
+  const { root } = treeFixture(mm);
+  const b = root.children[1];
+  const b1 = b.children[0];
+  const b1a = b1.children[0];
+  mm.Model.frames.push({ id: "fx_out", nodes: [b.id, b1a.id], label: null });
+  mm.Model.frames.push({ id: "fx_mid", nodes: [b1.id, b1a.id], label: null });
+  mm.Model.frames.push({ id: "fx_inn", nodes: [b1a.id], label: null });
+  mm.Layout.treeLayout(root, "right", THEME);
+  const vis = new Set(mm.Model.visibleNodes(root).map((n) => n.id));
+  const gOut = mm.Render.frameGeometry(mm.Model.frames[0], vis);
+  const gMid = mm.Render.frameGeometry(mm.Model.frames[1], vis);
+  const gInn = mm.Render.frameGeometry(mm.Model.frames[2], vis);
+  const innCx = gInn.x + gInn.w / 2, innCy = gInn.y + gInn.h / 2;
+  assert.equal(mm.Render.hitFrame(innCx, innCy).id, "fx_inn", "三层重叠点命中最小框");
+  assert.equal(mm.Render.hitFrame(innCx, innCy, "fx_inn").id, "fx_mid", "排除最小框后命中次小框");
+  const midCx = gMid.x + 5, midCy = gMid.y + gMid.h / 2;
+  assert.ok(!(midCx >= gInn.x && midCx <= gInn.x + gInn.w && midCy >= gInn.y && midCy <= gInn.y + gInn.h), "左 pad 点不在最小框内");
+  assert.equal(mm.Render.hitFrame(midCx, midCy).id, "fx_mid", "左 pad 点命中中框");
+  const outCx = gOut.x + 5, outCy = gOut.y + gOut.h / 2;
+  assert.equal(mm.Render.hitFrame(outCx, outCy).id, "fx_out", "左 pad 点命中外框");
+  assert.equal(mm.Render.hitFrame(gOut.x - 50, gOut.y - 50), null, "框外无命中");
+});
+
+test("全部收起：折叠子树内隐藏成员的外框不污染布局（坐标有限）", () => {
+  const { mm } = fresh();
+  const { root, a, b, c } = treeFixture(mm);
+  const a1 = a.children[0];
+  mm.Model.addFrame([a1.id]);
+  for (const n of mm.Model.allNodes(root)) if (n !== root) n.collapsed = true;
+  mm.Layout.treeLayout(root, "right", THEME);
+  for (const n of mm.Model.visibleNodes(root)) {
+    assert.ok(Number.isFinite(n.x) && Number.isFinite(n.y), n.text + " 坐标有限（无 NaN）");
+  }
+  assert.ok(b.y !== c.y, "兄弟节点纵向分布正常");
+  const gap = Math.abs(b.y - a.y);
+  assert.ok(gap > 0 && gap < 200, "兄弟间距合理");
+});
