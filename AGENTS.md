@@ -25,18 +25,4 @@
 
 ## 提交规范
 
-本仓库所有提交必须使用 `docs/commit-message-template.md` 中定义的 commit message 模板（已配置为仓库 `commit.template`，`git commit` 自动载入）：
-
-```
-<TYPE>: <摘要>
-
-- <改动说明，分条列出>
-- ...
-
-TEST: <验证说明>
-```
-
-- 类型前缀：`NEW`（新功能）/ `ENH`（增强改进）/ `FIX`（缺陷修复）/ `DOC`（文档）/ `REF`（重构）
-- 摘要与正文用中文，首行 ≤ 50 字符
-- `TEST:` 行必填，写明验证方式与结果，例如：`npm test 114/114 通过；新增 test/template.test.js 8 项；有头模式浏览器冒烟验证公式渲染`
-- 仅在提交前已完成测试与验证时提交
+本仓库所有提交必须使用 `docs/commit-message-template.md` 中定义的 commit message 模板（格式说明见该文件，已配置为仓库 `commit.template`，`git commit` 自动载入）。仅在提交前已完成测试与验证时提交。
