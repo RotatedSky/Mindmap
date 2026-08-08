@@ -134,6 +134,16 @@ def main():
         check(js("MM.Model.relations[0].toFrame === true && MM.Model.relations[0].to === MM.Model.frames[1].id"),
               "拖拽端点命中最内层外框（非最外层）")
 
+        page.locator("#btn-collapse-all").click()
+        page.wait_for_timeout(150)
+        check(js("MM.Model.visibleNodes(MM.Model.root).every(n => Number.isFinite(n.x) && Number.isFinite(n.y))"),
+              "全部收起后所有可见节点坐标有限（无 NaN）")
+        check(js("MM.Model.visibleNodes(MM.Model.root).length < MM.Model.allNodes(MM.Model.root).length"),
+              "全部收起后可见节点少于全部节点")
+        tf = js("(() => { const t = document.querySelector('#canvas g').transform.baseVal.consolidate(); return t ? {a: t.matrix.a, b: t.matrix.b, c: t.matrix.c, d: t.matrix.d, e: t.matrix.e, f: t.matrix.f} : null; })()")
+        check(tf and all(abs(tf[k]) < 1e6 for k in ("a", "b", "c", "d", "e", "f")),
+              "全部收起后视口变换矩阵有限")
+
         page.goto("http://127.0.0.1:%d/testbed-frame.html" % PORT)
         page.wait_for_function("document.title.indexOf('{') === 0")
         out = json.loads(page.title())
