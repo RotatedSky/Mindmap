@@ -48,9 +48,11 @@
 
 1. 运行全量测试：`npm test`；语法检查：`node --check js/<file>.js`。
 2. 新增用例放在对应模块的 `test/<module>.test.js`，遵循沙箱规则（见"测试用例常见错误"）。
-3. 浏览器冒烟验证：
+3. 几何 / 布局算法变更（外框、连线、测量相关）必跑随机回归：`node test/fuzz-frames.js`（两 seed × 5000 runs × 6 方向）。fuzz 失败会自动留存现场到 `test/failures/`（已 gitignore），用 `node test/repro.js <现场.json> [布局方向]` 一键复现并打印全部几何 / pad / pill 检查值，无需手工构造复现用例。
+4. 浏览器冒烟：
    - 触发条件（满足任一即必须冒烟）：DOM 重交互（拖拽、菜单、输入框）、Canvas/SVG/foreignObject 渲染、导出下载、外部库（如 KaTeX）在真实浏览器中的行为
-   - 记录格式：冒烟结论写入该次任务的结果说明，注明浏览器与验证的功能点；冒烟暴露的问题转入阶段 4 闭环
+   - 优先用自动化冒烟：`python tools/smoke_ui.py`（Playwright，覆盖右键菜单交互与外框几何断言；首次使用需 `pip install playwright` + `playwright install chromium`），或 `--headed` 观察真实交互
+   - 自动化覆盖不到的再手动冒烟；冒烟结论写入该次任务的结果说明，注明浏览器与验证的功能点；冒烟暴露的问题转入阶段 4 闭环
 
 ## 阶段 4：问题修改（闭环）
 

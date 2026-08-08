@@ -30,6 +30,9 @@ Desktop.ini
 logs/
 *.log
 
+# Fuzz failure snapshots
+test/failures/
+
 # Local data / backups
 backup/
 *.bak

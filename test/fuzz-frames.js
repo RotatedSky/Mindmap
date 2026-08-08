@@ -73,17 +73,33 @@ function isNested(mm, outer, inner) {
 }
 
 let failures = 0;
-function check(cond, msg) {
-  if (!cond) { failures++; console.log("FAIL:", msg); }
+function check(cond, msg, ctx) {
+  if (!cond) {
+    failures++;
+    console.log("FAIL:", msg);
+    if (ctx) dumpFailure(ctx);
+  }
+}
+
+function dumpFailure(ctx) {
+  const dirPath = require("path").join(__dirname, "failures");
+  require("fs").mkdirSync(dirPath, { recursive: true });
+  const file = require("path").join(dirPath, "fuzz-" + ctx.seed + "-r" + ctx.run + "-" + ctx.dir + ".json");
+  require("fs").writeFileSync(file, JSON.stringify(ctx.mm.Model.serialize()));
+  console.log("现场已留存:", file);
+  console.log("复现: node test/repro.js " + file + " " + ctx.dir);
 }
 
 function run(seed, count, dirs) {
   let rng = mulberry32(seed);
   for (let i = 0; i < count; i++) {
+    const ctx = { mm: null, seed, run: i, dir: null };
     const mm = setup(["model", "math", "layout", "render"]).mm;
     const root = randTree(mm, rng);
     randomFrames(mm, rng);
     const dir = dirs[Math.floor(rng() * dirs.length)];
+    ctx.mm = mm;
+    ctx.dir = dir;
     mm.Layout.treeLayout(root, dir, THEME);
     const vis = new Set(collect(mm).map((n) => n.id));
     const geos = mm.Model.frames.map((f) => mm.Render.frameGeometry(f, vis));
@@ -100,10 +116,10 @@ function run(seed, count, dirs) {
         if (na || nb) {
           const out = na ? fa : fb, inn = na ? fb : fa;
           const go = na ? ga : gb, gi = na ? gb : ga;
-          check(go.x + go.w - gi.x >= 14 - 0.01, "嵌套左间隔 <14");
-          check(go.y + go.h - gi.y >= 14 - 0.01, "嵌套下间隔 <14");
-          check(gi.x + gi.w - go.x >= 14 - 0.01, "嵌套右间隔 <14");
-          check(gi.y + gi.h - go.y >= 14 - 0.01, "嵌套上间隔 <14");
+          check(go.x + go.w - gi.x >= 14 - 0.01, "嵌套左间隔 <14", ctx);
+          check(go.y + go.h - gi.y >= 14 - 0.01, "嵌套下间隔 <14", ctx);
+          check(gi.x + gi.w - go.x >= 14 - 0.01, "嵌套右间隔 <14", ctx);
+          check(gi.y + gi.h - go.y >= 14 - 0.01, "嵌套上间隔 <14", ctx);
           const pillTop = gi.y - 14;
           if (inn.label) {
             if (!(pillTop >= go.y - 0.01)) {
@@ -113,6 +129,7 @@ function run(seed, count, dirs) {
               console.log("pads out:", mm.Layout.framePadTop(out.id), "inn:", mm.Layout.framePadTop(inn.id));
               console.log("frameList:", JSON.stringify(mm.Model.frames.map((f) => ({ id: f.id, nodes: f.nodes, label: f.label }))));
               console.log("nodes:", JSON.stringify(collect(mm).map((n) => ({ id: n.id, text: n.text, x: n.x, y: n.y, w: n.w, h: n.h, parent: mm.Model.findParent(mm.Model.root, n.id) && mm.Model.findParent(mm.Model.root, n.id).text }))));
+              dumpFailure(ctx);
               process.exit(1);
             }
           }
@@ -122,6 +139,7 @@ function run(seed, count, dirs) {
             console.log("frames:", JSON.stringify(mm.Model.frames.map((f) => ({ nodes: f.nodes, label: f.label }))));
             console.log("geos A:", JSON.stringify(ga), "B:", JSON.stringify(gb));
             console.log("nodes:", JSON.stringify(collect(mm).map((n) => ({ id: n.id, x: n.x, y: n.y }))));
+            dumpFailure(ctx);
             process.exit(1);
           }
         }
@@ -133,7 +151,7 @@ function run(seed, count, dirs) {
           const n = mm.Model.find(mm.Model.root, id);
           if (!n) continue;
           const top = n.y - n.h / 2;
-          check(pillBot <= top - 1, "pill 底压成员节点: pillBot=" + pillBot + " nTop=" + top);
+          check(pillBot <= top - 1, "pill 底压成员节点: pillBot=" + pillBot + " nTop=" + top, ctx);
         }
       }
     }
