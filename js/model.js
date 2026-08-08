@@ -13,7 +13,7 @@
     redoStack: [],
     relations: [],
     frames: [],
-    settings: { theme: "blue", layoutMode: "tree", direction: "right" },
+    settings: { theme: "blue", layoutMode: "tree", direction: "right", lineStyle: "default" },
     onChange: null
   };
 

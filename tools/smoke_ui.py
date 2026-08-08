@@ -144,6 +144,20 @@ def main():
         check(tf and all(abs(tf[k]) < 1e6 for k in ("a", "b", "c", "d", "e", "f")),
               "全部收起后视口变换矩阵有限")
 
+        check(page.locator("#line-style-select option").count() == 6, "连线配色下拉含 6 个选项")
+        page.locator("#btn-expand-all").click()
+        page.wait_for_timeout(150)
+        page.locator("#line-style-select").select_option("rainbow")
+        page.wait_for_timeout(100)
+        check(js("MM.Model.settings.lineStyle") == "rainbow", "切换连线配色写入 settings")
+        colors = js("""() => {
+            const paths = document.querySelectorAll('#canvas path.connector');
+            const s = new Set();
+            for (const p of paths) s.add(p.getAttribute('stroke'));
+            return [...s];
+        }""")
+        check(len(colors) >= 2, "彩虹模式下不同层级连线颜色不同（%s）" % colors)
+
         page.goto("http://127.0.0.1:%d/testbed-frame.html" % PORT)
         page.wait_for_function("document.title.indexOf('{') === 0")
         out = json.loads(page.title())

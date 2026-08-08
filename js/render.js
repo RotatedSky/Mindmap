@@ -14,6 +14,21 @@
     clipSeq: 0
   };
 
+  const LINE_STYLES = [
+    { id: "default", name: "\u9ed8\u8ba4\u5355\u8272", colors: null },
+    { id: "rainbow", name: "\u5f69\u8679", colors: ["#e64545", "#e8883a", "#e6b800", "#3fae62", "#3a8fe0", "#8a5fd6"] },
+    { id: "cool", name: "\u51b7\u8272", colors: ["#2f7fd6", "#1aa3b0", "#36b37e", "#5a8fd0", "#4cafb5", "#7a6fd0"] },
+    { id: "warm", name: "\u6696\u8272", colors: ["#e0574f", "#e8893b", "#efb93e", "#d9606b", "#e0762e", "#cf4a6a"] },
+    { id: "morandi", name: "\u83ab\u5170\u8fea", colors: ["#b5907f", "#8fb2a5", "#a2a6c7", "#c2a0a0", "#9aa87f", "#7f8ea8"] },
+    { id: "mono", name: "\u9ed1\u767d\u7070", colors: ["#5a5a5a", "#8a8a8a", "#b0b0b0", "#3f3f3f", "#9f9f9f", "#707070"] }
+  ];
+
+  function lineColorFor(depth, theme) {
+    const def = LINE_STYLES.find((s) => s.id === M.Model.settings.lineStyle);
+    if (!def || !def.colors) return theme.line;
+    return def.colors[((depth || 1) - 1) % def.colors.length];
+  }
+
   function cssVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
@@ -537,7 +552,7 @@
         const p = svgEl("path", {
           class: "connector", "data-id": n.id,
           d: connectorPath(parent, n, theme),
-          fill: "none", stroke: theme.line, "stroke-width": 2
+          fill: "none", stroke: lineColorFor(n.depth, theme), "stroke-width": 2
         }, g);
         svg.connEls.set(n.id, p);
       }
@@ -689,7 +704,7 @@
         const parent = M.Model.findParent(M.Model.root, n.id);
         svgEl("path", {
           d: connectorPath(parent, n, theme),
-          fill: "none", stroke: theme.line, "stroke-width": 2
+          fill: "none", stroke: lineColorFor(n.depth, theme), "stroke-width": 2
         }, g);
       }
     }
@@ -711,6 +726,7 @@
 
   M.Theme = { get: getTheme };
   M.Render = {
+    LINE_STYLES,
     init(el) { svg.el = el; },
     render, renderTreeInto, applySelectionClasses,
     setTransform, worldToScreen, screenToWorld, fit, centerOn,

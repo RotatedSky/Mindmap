@@ -33,6 +33,9 @@ logs/
 # Fuzz failure snapshots
 test/failures/
 
+# Smoke test artifacts
+tools/smoke-shot.png
+
 # Local data / backups
 backup/
 *.bak

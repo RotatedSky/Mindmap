@@ -282,6 +282,19 @@
     }
     themeSel.addEventListener("change", () => applyTheme(themeSel.value));
 
+    const lineSel = $("line-style-select");
+    for (const s of M.Render.LINE_STYLES) {
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.name;
+      lineSel.appendChild(opt);
+    }
+    lineSel.addEventListener("change", () => {
+      M.Model.setSettings({ lineStyle: lineSel.value });
+      M.Storage.save();
+      M.Render.render();
+    });
+
     const layoutSel = $("layout-select");
     layoutSel.addEventListener("change", () => {
       if (layoutSel.value === "free") M.Layout.initFreePositions();
@@ -360,6 +373,7 @@
     document.documentElement.dataset.theme = s.theme;
     applyBg();
     $("theme-select").value = s.theme;
+    $("line-style-select").value = s.lineStyle || "default";
     $("layout-select").value = s.layoutMode || "tree";
     $("direction-select").value = s.direction || "right";
     $("bg-color").value = s.bg || getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim();
