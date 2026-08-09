@@ -42,6 +42,7 @@
       <button id="btn-search" title="搜索 (Ctrl+F)">搜索</button>
       <button id="btn-outline" title="大纲视图">大纲</button>
       <button id="btn-notes" title="节点备注">备注</button>
+      <button id="btn-style" title="节点样式">样式</button>
     </div>
     <div class="tb-group">
       <button id="btn-import" title="导入 JSON 文件 / Markdown 大纲">导入</button>
@@ -80,6 +81,23 @@
       <div id="notes-hint">选中一个节点后在此编辑备注</div>
       <textarea style="display:none" placeholder="在此输入该节点的备注内容…"></textarea>
     </aside>
+
+    <aside id="style-panel" class="panel right" style="display:none">
+      <div class="panel-head"><span>节点样式</span><span class="panel-close">✕</span></div>
+      <div class="panel-body">
+        <div id="style-hint">选中一个节点后在此调整样式</div>
+        <div id="style-controls" style="display:none">
+          <div class="st-row"><label>背景色</label><input type="color" id="st-bg"><button class="st-rst" data-reset="bg" title="恢复默认">↺</button></div>
+          <div class="st-row"><label>文字颜色</label><input type="color" id="st-text"><button class="st-rst" data-reset="textColor" title="恢复默认">↺</button></div>
+          <div class="st-row"><label>边框颜色</label><input type="color" id="st-border"><button class="st-rst" data-reset="borderColor" title="恢复默认">↺</button></div>
+          <div class="st-row"><label>边框粗细</label><input type="range" id="st-border-w" min="0" max="5" step="0.5"><span id="st-border-w-v"></span><button class="st-rst" data-reset="borderWidth" title="恢复默认">↺</button></div>
+          <div class="st-row"><label>圆角</label><input type="range" id="st-radius" min="0" max="30" step="1"><span id="st-radius-v"></span><button class="st-rst" data-reset="radius" title="恢复默认">↺</button></div>
+          <div class="st-row"><label>字号</label><input type="range" id="st-fs" min="10" max="32" step="1"><span id="st-fs-v"></span><button class="st-rst" data-reset="fontSize" title="恢复默认">↺</button></div>
+          <div class="st-row"><label>加粗</label><input type="checkbox" id="st-bold"></div>
+          <div class="st-actions"><button id="st-reset">恢复默认</button></div>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <div id="toasts"></div>
@@ -95,6 +113,7 @@
   <script src="js/search.js"></script>
   <script src="js/outline.js"></script>
   <script src="js/notes.js"></script>
+  <script src="js/style.js"></script>
   <script src="js/markdown.js"></script>
   <script src="js/exporter.js"></script>
   <script src="js/storage.js"></script>

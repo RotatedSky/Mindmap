@@ -158,6 +158,43 @@ def main():
         }""")
         check(len(colors) >= 2, "彩虹模式下不同层级连线颜色不同（%s）" % colors)
 
+        js("MM.Model.clearSelection()")
+        js("MM.Style.setOpen(false)")
+        page.wait_for_timeout(50)
+        page.locator("#btn-style").click()
+        page.wait_for_timeout(100)
+        check(page.locator("#style-panel").is_visible(), "打开样式面板")
+        check(page.locator("#style-hint").is_visible(), "无选中时显示提示")
+        kid = js("MM.Model.root.children[0].id")
+        page.locator('g.node[data-id="%s"]' % kid).click()
+        page.wait_for_timeout(100)
+        check(page.locator("#style-controls").is_visible(), "选中节点后显示样式控件")
+        js("""function() {
+            const n = MM.Model.find(MM.Model.root, arguments[0]);
+            MM.Model.change(() => {
+                n.style = { bg: '#ff00aa', textColor: '#00ffaa', borderColor: '#aa00ff', borderWidth: 4, radius: 0, fontSize: 24, bold: true };
+            });
+        }""", kid)
+        page.wait_for_timeout(100)
+        check(js("MM.Model.settings.lineStyle") == "rainbow", "连线配色保持")
+        check(js("function(){ return MM.Model.find(MM.Model.root, arguments[0]).style.bg }", kid) == "#ff00aa", "样式写入节点")
+        check(js("function(){ return MM.Model.find(MM.Model.root, arguments[0]).style.fontSize }", kid) == 24, "样式字号写入")
+        rect = page.locator('g.node[data-id="%s"] rect.nrect' % kid)
+        check(rect.get_attribute("fill") == "#ff00aa", "SVG 背景色生效")
+        check(rect.get_attribute("stroke") == "#aa00ff", "SVG 边框色生效")
+        check(rect.get_attribute("stroke-width") == "4", "SVG 边框粗细生效")
+        check(rect.get_attribute("rx") == "0", "SVG 圆角生效")
+        text = page.locator('g.node[data-id="%s"] text' % kid).first
+        check(text.get_attribute("font-size") == "24", "SVG 字号生效")
+        check(text.get_attribute("font-weight") == "700", "SVG 加粗生效")
+
+        page.mouse.click(60, 200)
+        page.wait_for_timeout(100)
+        check(not page.locator("#style-panel").is_visible(), "点击空白收起样式面板")
+        page.locator('g.node[data-id="%s"]' % kid).click()
+        page.wait_for_timeout(100)
+        check(page.locator("#style-panel").is_visible(), "点击节点重新打开样式面板")
+
         page.goto("http://127.0.0.1:%d/testbed-frame.html" % PORT)
         page.wait_for_function("document.title.indexOf('{') === 0")
         out = json.loads(page.title())

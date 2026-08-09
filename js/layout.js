@@ -20,8 +20,9 @@
 
   function fontFor(node, theme) {
     const isRoot = node.parentKind === "root";
-    const fs = isRoot ? theme.rootFs : theme.nodeFs;
-    const weight = isRoot ? 700 : 500;
+    const st = node.style || {};
+    const fs = st.fontSize || (isRoot ? theme.rootFs : theme.nodeFs);
+    const weight = st.bold ? 700 : (isRoot ? 700 : 500);
     return weight + " " + fs + "px " + theme.fontFamily;
   }
 
@@ -133,8 +134,9 @@
 
   function nodeSize(node, theme) {
     const isRoot = node.parentKind === "root";
+    const st = node.style || {};
     const font = fontFor(node, theme);
-    const fs = (isRoot ? theme.rootFs : theme.nodeFs);
+    const fs = st.fontSize || (isRoot ? theme.rootFs : theme.nodeFs);
     const lines = wrapParts(node.text || "", MAX_W, font);
     let maxW = 0;
     for (const l of lines) {

@@ -96,6 +96,23 @@ test("nodeSize 计算宽度与高度", () => {
   assert.equal(n.h, mm.Layout.PAD_Y * 2 + 4 + Math.round(14 * 1.4));
 });
 
+test("nodeSize 感知自定义字号（行高随 fontSize 变化）", () => {
+  const { mm } = fresh();
+  const n = mm.Model.createNode("hi");
+  n.parentKind = "node";
+  n.style = { fontSize: 20 };
+  mm.Layout.nodeSize(n, THEME);
+  assert.equal(n.h, mm.Layout.PAD_Y * 2 + 4 + Math.round(20 * 1.4), "自定义字号行高");
+  const bold = mm.Model.createNode("hi");
+  bold.parentKind = "node";
+  bold.style = { bold: true, fontSize: 14 };
+  mm.Layout.nodeSize(bold, THEME);
+  const plain = mm.Model.createNode("hi");
+  plain.parentKind = "node";
+  mm.Layout.nodeSize(plain, THEME);
+  assert.equal(bold.h, plain.h, "加粗不影响尺寸（字体只换字重）");
+});
+
 test("nodeSize 多行高度累加", () => {
   const { mm } = fresh();
   const n = mm.Model.createNode("line1\nline2");

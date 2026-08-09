@@ -32,7 +32,8 @@
       color: null,
       notes: null,
       frame: null,
-      freePos: null
+      freePos: null,
+      style: null
     };
   }
 

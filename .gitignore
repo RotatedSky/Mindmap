@@ -35,6 +35,7 @@ test/failures/
 
 # Smoke test artifacts
 tools/smoke-shot.png
+__pycache__/
 
 # Local data / backups
 backup/

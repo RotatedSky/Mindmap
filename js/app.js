@@ -351,6 +351,9 @@
     $("btn-notes").addEventListener("click", () => {
       setNotesOpen(!M.Notes.isOpen());
     });
+    $("btn-style").addEventListener("click", () => {
+      M.Style.setOpen(!M.Style.isOpen());
+    });
 
     $("btn-export").addEventListener("click", showExportDialog);
     $("btn-help").addEventListener("click", showHelp);
@@ -365,6 +368,7 @@
     M.Render.render();
     M.Outline.refresh();
     M.Notes.refresh();
+    M.Style.refresh();
     M.Storage.save();
   }
 
@@ -389,6 +393,7 @@
     M.Search.init();
     M.Outline.init();
     M.Notes.init();
+    M.Style.init();
     M.Editor.init($("canvas-wrap"), $("canvas"));
     wireToolbar();
 

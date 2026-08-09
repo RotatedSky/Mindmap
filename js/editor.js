@@ -362,6 +362,7 @@
 
     if (ed.mode === "pan") {
       const dx = e.clientX - ed.panStart.x, dy = e.clientY - ed.panStart.y;
+      if (Math.hypot(dx, dy) > 4) ed.moved = true;
       M.Render.setTransform(ed.panStart.tx + dx, ed.panStart.ty + dy, M.Render.view.s);
       return;
     }
@@ -557,6 +558,8 @@
     if (ed.mode === "pan") {
       ed.svg.classList.remove("panning");
       ed.mode = null;
+      if (!ed.moved) M.Style.setOpen(false);
+      ed.moved = false;
       return;
     }
     if (ed.mode === "marquee") {
@@ -565,6 +568,7 @@
         for (const id of (ed.marqueeHits || [])) ids.add(id);
         ed.selectedFrameId = null;
         M.Model.setSelection(ids);
+        M.Style.setOpen(true);
       }
       if (ed.marqueeEl) { ed.marqueeEl.remove(); ed.marqueeEl = null; }
       ed.marqueeStart = null;
@@ -595,6 +599,9 @@
           M.Model.touch();
         }
         M.Render.applySelectionClasses();
+      } else if (node) {
+        M.Model.setPrimary(node.id);
+        M.Style.setOpen(true);
       }
       ed.mode = null;
       return;
@@ -810,10 +817,13 @@
     input.style.textAlign = "center";
     const theme = M.Theme.get();
     const isRoot = node.depth === 0;
-    const font = (isRoot ? 700 : 500) + " " + (isRoot ? theme.rootFs : theme.nodeFs) + "px " + theme.fontFamily;
+    const st = node.style || {};
+    const fs = st.fontSize || (isRoot ? theme.rootFs : theme.nodeFs);
+    const weight = st.bold ? 700 : (isRoot ? 700 : 500);
+    const font = weight + " " + fs + "px " + theme.fontFamily;
     const wrapped = M.Layout.wrapText(input.value, M.Layout.MAX_W, font).length;
     input.rows = Math.max(1, Math.min(8, wrapped));
-    input.style.fontSize = (isRoot ? theme.rootFs : theme.nodeFs) + "px";
+    input.style.fontSize = fs + "px";
     ed.editInput.style.display = "block";
     repositionEdit();
     input.focus();

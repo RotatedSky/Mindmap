@@ -90,13 +90,16 @@
 
   function buildNode(g, node, theme, opts) {
     const isRoot = node.depth === 0;
-    const fill = node.color || (isRoot ? theme.rootBg : theme.nodeBg);
-    const stroke = node.color || (isRoot ? theme.rootBg : theme.nodeBorder);
-    const textFill = node.color ? textColorFor(node.color) : (isRoot ? theme.rootText : theme.nodeText);
-    const fs = isRoot ? theme.rootFs : theme.nodeFs;
-    const font = (isRoot ? 700 : 500) + " " + fs + "px " + theme.fontFamily;
+    const st = node.style || {};
+    const fill = st.bg || node.color || (isRoot ? theme.rootBg : theme.nodeBg);
+    const stroke = st.borderColor || node.color || (isRoot ? theme.rootBg : theme.nodeBorder);
+    const textFill = st.textColor || (node.color ? textColorFor(node.color) : (isRoot ? theme.rootText : theme.nodeText));
+    const fs = st.fontSize || (isRoot ? theme.rootFs : theme.nodeFs);
+    const weight = st.bold ? 700 : (isRoot ? 700 : 500);
+    const font = weight + " " + fs + "px " + theme.fontFamily;
     const x = node.x, y = node.y, w = node.w, h = node.h;
-    const r = (isRoot ? theme.radius + 2 : theme.radius);
+    const r = st.radius != null ? st.radius : (isRoot ? theme.radius + 2 : theme.radius);
+    const strokeW = st.borderWidth != null ? st.borderWidth : 1.5;
 
     const grp = svgEl("g", {
       class: "node",
@@ -107,7 +110,7 @@
     svgEl("rect", {
       class: "nrect",
       x: -w / 2, y: -h / 2, width: w, height: h,
-      rx: r, fill: fill, stroke: stroke, "stroke-width": 1.5
+      rx: r, fill: fill, stroke: stroke, "stroke-width": strokeW
     }, grp);
 
     if (node.image) {
@@ -173,7 +176,7 @@
           "text-anchor": "middle",
           "font-family": theme.fontFamily,
           "font-size": fs,
-          "font-weight": isRoot ? 700 : 500
+          "font-weight": weight
         }, grp);
         const tspan = svgEl("tspan", { x: 0, y: yBase, fill: textFill }, tg);
         tspan.textContent = line.map((p) => p.str).join("");
@@ -191,7 +194,7 @@
             "text-anchor": "start",
             "font-family": theme.fontFamily,
             "font-size": fs,
-            "font-weight": isRoot ? 700 : 500,
+            "font-weight": weight,
             fill: textFill
           }, grp);
           t.textContent = p.str;
