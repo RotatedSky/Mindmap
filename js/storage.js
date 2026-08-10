@@ -39,15 +39,8 @@
 
   function exportJSON() {
     const blob = new Blob([JSON.stringify(M.Model.serialize())], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "mindmap-" + Date.now() + ".json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-    M.App.toast("\u5df2\u5bfc\u51fa JSON");
+    M.Exporter.saveBlob(blob, "mindmap-" + Date.now() + ".json", "application/json")
+      .then((ok) => { if (ok) M.App.toast("\u5df2\u5bfc\u51fa JSON"); });
   }
 
   function importJSON(file) {

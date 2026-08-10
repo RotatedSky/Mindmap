@@ -44,6 +44,19 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=not headed)
         page = browser.new_page()
+        page.add_init_script("""
+          window.__saved = [];
+          window.__picked = null;
+          window.showSaveFilePicker = async (opts) => {
+            window.__picked = opts;
+            return {
+              createWritable: async () => ({
+                write: async (b) => window.__saved.push(b),
+                close: async () => {}
+              })
+            };
+          };
+        """)
 
         page.goto("http://127.0.0.1:%d/index.html" % PORT)
         modal = page.locator(".modal")
@@ -122,7 +135,9 @@ def main():
             const inn = M.Model.frames[1];
             const vis = new Set(M.Model.visibleNodes(M.Model.root).map(n => n.id));
             const g = M.Render.frameGeometry(inn, vis);
-            return M.Render.worldToScreen(g.x + g.w - 6, g.y + g.h - 6);
+            const r = document.getElementById('canvas').getBoundingClientRect();
+            const s = M.Render.worldToScreen(g.x + g.w - 6, g.y + g.h - 6);
+            return { x: s.x + r.x, y: s.y + r.y };
           }
         """)
         page.mouse.move(hb["x"] + hb["width"] / 2, hb["y"] + hb["height"] / 2)
@@ -210,6 +225,66 @@ def main():
         b_top = min(nb["y"] - nb["h"] / 2, nc["y"] - nc["h"] / 2)
         check(abs(multi["y"] + 14 - b_top) < 0.01, "多节点外框：框顶与成员顶间隔 14")
         check(abs(multi["x"] - single["x"]) < 0.01, "两外框左缘对齐")
+
+        page.goto("http://127.0.0.1:%d/index.html" % PORT)
+        page.wait_for_timeout(300)
+        js("(() => { const m = document.querySelector('.modal-mask'); if (m) m.remove(); })()")
+        js("MM.Style.setOpen(false)")
+        inn_id = js("MM.Model.frames[1].id")
+        pt = js("""
+          (fid) => {
+            const M = window.MM;
+            const f = M.Model.frames.find(x => x.id === fid);
+            const vis = new Set(M.Model.visibleNodes(M.Model.root).map(n => n.id));
+            const g = M.Render.frameGeometry(f, vis);
+            const r = document.getElementById('canvas').getBoundingClientRect();
+            const s = M.Render.worldToScreen(g.x + g.w / 2, g.y + 4);
+            return { x: s.x + r.x, y: s.y + r.y };
+          }
+        """, inn_id)
+        page.mouse.click(pt["x"], pt["y"])
+        page.wait_for_timeout(150)
+        check(page.locator("#style-panel").is_visible(), "单击外框打开样式面板")
+        check(page.locator("#style-title").inner_text() == "外框样式", "面板标题切换为外框样式")
+        check(page.locator("div.st-row:has(#st-dash)").is_visible(), "外框模式显示线型行")
+        check(not page.locator("div.st-row:has(#st-bg)").is_visible(), "外框模式隐藏节点专属行")
+
+        page.locator("#st-border").fill("#00ccff")
+        page.locator("#st-border-w").fill("4")
+        page.locator("#st-radius").fill("0")
+        page.locator("#st-dash").uncheck()
+        page.wait_for_timeout(150)
+        st = js("(fid) => MM.Model.frames.find(x => x.id === fid).style", inn_id)
+        check(st["borderColor"] == "#00ccff", "外框边框颜色写入")
+        check(st["borderWidth"] == 4, "外框边框粗细写入")
+        check(st["radius"] == 0, "外框圆角写入")
+        check(st["dash"] is False, "外框实线写入")
+        fr = page.locator('.frame-rect[data-id="%s"]' % inn_id)
+        check(fr.get_attribute("stroke") == "#00ccff", "SVG 外框颜色生效")
+        check(fr.get_attribute("stroke-width") == "4", "SVG 外框粗细生效")
+        check(fr.get_attribute("rx") == "0", "SVG 外框圆角生效")
+        check(fr.get_attribute("stroke-dasharray") == "none", "SVG 外框实线生效")
+
+        page.locator("#st-reset").click()
+        page.wait_for_timeout(100)
+        check(js("(fid) => MM.Model.frames.find(x => x.id === fid).style", inn_id) is None, "恢复默认清空外框样式")
+        check(fr.get_attribute("stroke-dasharray") == "8 5", "恢复默认后虚线恢复")
+        page.mouse.click(60, 200)
+        page.wait_for_timeout(100)
+        check(not page.locator("#style-panel").is_visible(), "外框模式面板可收起")
+
+        js("MM.Style.setOpen(false)")
+        page.locator("#btn-export").click()
+        page.wait_for_timeout(100)
+        page.locator(".modal button.primary").click()
+        page.wait_for_function("window.__saved.length === 1")
+        check(js("window.__picked.suggestedName").endswith(".png"), "PNG 导出经保存对话框（可选路径）")
+        page.locator("#btn-export").click()
+        page.wait_for_timeout(100)
+        page.locator(".modal #ex-fmt").select_option("JSON 备份")
+        page.locator(".modal button.primary").click()
+        page.wait_for_function("window.__saved.length === 2")
+        check(js("window.__picked.suggestedName").endswith(".json"), "JSON 导出经保存对话框")
 
         page.screenshot(path=str(ROOT / "tools" / "smoke-shot.png"))
         browser.close()

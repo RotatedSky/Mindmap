@@ -22,6 +22,31 @@
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
 
+  const EXT_BY_TYPE = {
+    "image/png": "png", "image/jpeg": "jpg", "image/svg+xml": "svg",
+    "application/pdf": "pdf", "text/markdown": "md", "application/json": "json"
+  };
+
+  async function saveBlob(blob, name, type) {
+    if (window.showSaveFilePicker) {
+      try {
+        const ext = EXT_BY_TYPE[type] || String(name).split(".").pop();
+        const handle = await window.showSaveFilePicker({
+          suggestedName: name,
+          types: [{ description: type, accept: { [type]: ["." + ext] } }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return true;
+      } catch (err) {
+        if (err && err.name === "AbortError") return false;
+      }
+    }
+    download(blob, name);
+    return true;
+  }
+
   function buildSVG(bg) {
     const visible = M.Model.visibleNodes(M.Model.root);
     const bounds = M.Layout.bounds(visible);
@@ -49,8 +74,8 @@
       const svgStr = buildSVG(opts.bg);
       const canvas = await svgToCanvas(svgStr, opts.scale || 2);
       const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
-      download(blob, "mindmap-" + stamp() + ".png");
-      M.App.toast("\u5df2\u5bfc\u51fa PNG");
+      const ok = await saveBlob(blob, "mindmap-" + stamp() + ".png", "image/png");
+      if (ok) M.App.toast("\u5df2\u5bfc\u51fa PNG");
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }
@@ -61,8 +86,8 @@
       const svgStr = buildSVG("white");
       const canvas = await svgToCanvas(svgStr, opts.scale || 2);
       const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
-      download(blob, "mindmap-" + stamp() + ".jpg");
-      M.App.toast("\u5df2\u5bfc\u51fa JPEG");
+      const ok = await saveBlob(blob, "mindmap-" + stamp() + ".jpg", "image/jpeg");
+      if (ok) M.App.toast("\u5df2\u5bfc\u51fa JPEG");
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }
@@ -72,8 +97,8 @@
     try {
       const svgStr = buildSVG(opts.bg);
       const blob = new Blob([svgStr], { type: "image/svg+xml" });
-      download(blob, "mindmap-" + stamp() + ".svg");
-      M.App.toast("\u5df2\u5bfc\u51fa SVG");
+      saveBlob(blob, "mindmap-" + stamp() + ".svg", "image/svg+xml")
+        .then((ok) => { if (ok) M.App.toast("\u5df2\u5bfc\u51fa SVG"); });
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }
@@ -158,8 +183,8 @@
         imgW: canvas.width, imgH: canvas.height,
         draw: { x: 0, y: 0, w: canvas.width, h: canvas.height }
       }]);
-      download(new Blob([strToBytes(pdf)], { type: "application/pdf" }), "mindmap-" + stamp() + ".pdf");
-      M.App.toast("\u5df2\u5bfc\u51fa PDF\uff08\u5355\u9875\uff09");
+      const ok = await saveBlob(new Blob([strToBytes(pdf)], { type: "application/pdf" }), "mindmap-" + stamp() + ".pdf", "application/pdf");
+      if (ok) M.App.toast("\u5df2\u5bfc\u51fa PDF\uff08\u5355\u9875\uff09");
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }
@@ -199,8 +224,8 @@
       }
     }
     const pdf = buildPDF(pages);
-    download(new Blob([strToBytes(pdf)], { type: "application/pdf" }), "mindmap-" + stamp() + "-print.pdf");
-    M.App.toast("\u5df2\u5bfc\u51fa PDF\uff08" + pages.length + " \u9875\uff09");
+    const ok = await saveBlob(new Blob([strToBytes(pdf)], { type: "application/pdf" }), "mindmap-" + stamp() + "-print.pdf", "application/pdf");
+    if (ok) M.App.toast("\u5df2\u5bfc\u51fa PDF\uff08" + pages.length + " \u9875\uff09");
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }
@@ -211,5 +236,5 @@
     else await exportPDFSingle(opts);
   }
 
-  M.Exporter = { exportPNG, exportJPEG, exportSVG, exportPDF };
+  M.Exporter = { exportPNG, exportJPEG, exportSVG, exportPDF, saveBlob };
 })();

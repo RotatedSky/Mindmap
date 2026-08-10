@@ -327,3 +327,70 @@ test("onChange 回调触发", () => {
   mm.Model.clearSelection();
   assert.ok(called >= 5);
 });
+
+test("setFrameStyle 设置/删除/清空外框样式", () => {
+  const { mm, root } = freshRoot();
+  const a = mm.Model.addChild(root, "a");
+  const f = mm.Model.addFrame([a.id]);
+  mm.Model.setFrameStyle(f.id, "borderColor", "#ff0000");
+  mm.Model.setFrameStyle(f.id, "borderWidth", 3);
+  mm.Model.setFrameStyle(f.id, "dash", false);
+  sameJSON(f.style, { borderColor: "#ff0000", borderWidth: 3, dash: false });
+  mm.Model.setFrameStyle(f.id, "dash", null);
+  sameJSON(f.style, { borderColor: "#ff0000", borderWidth: 3 });
+  mm.Model.setFrameStyle(f.id, "borderColor", null);
+  mm.Model.setFrameStyle(f.id, "borderWidth", null);
+  assert.equal(f.style, null);
+});
+
+test("外框样式支持撤销/重做", () => {
+  const { mm, root } = freshRoot();
+  const a = mm.Model.addChild(root, "a");
+  const f = mm.Model.addFrame([a.id]);
+  mm.Model.record();
+  mm.Model.setFrameStyle(f.id, "borderColor", "#123456");
+  mm.Model.touch();
+  assert.equal(mm.Model.frames[0].style.borderColor, "#123456");
+  mm.Model.undo();
+  assert.equal(mm.Model.frames[0].style, undefined, "撤销恢复无样式快照");
+  mm.Model.redo();
+  assert.equal(mm.Model.frames[0].style.borderColor, "#123456", "重做恢复样式");
+});
+
+test("外框样式序列化往返保留且旧数据兼容", () => {
+  const { mm, root } = freshRoot();
+  const a = mm.Model.addChild(root, "a");
+  const f = mm.Model.addFrame([a.id]);
+  mm.Model.setFrameStyle(f.id, "borderColor", "#00ff00");
+  mm.Model.setFrameStyle(f.id, "dash", false);
+  const obj = JSON.parse(JSON.stringify(mm.Model.serialize()));
+  assert.equal(obj.frames[0].style.borderColor, "#00ff00");
+
+  const mm2 = fresh().mm;
+  mm2.Model.deserialize(obj);
+  assert.equal(mm2.Model.frames[0].style.borderColor, "#00ff00");
+  assert.equal(mm2.Model.frames[0].style.dash, false);
+
+  const legacy = JSON.parse(JSON.stringify(obj));
+  legacy.frames[0].style = undefined;
+  legacy.frames[0].label = "L";
+  const mm3 = fresh().mm;
+  assert.equal(mm3.Model.deserialize(legacy), true);
+  assert.equal(mm3.Model.frames[0].style, undefined, "旧数据无 style 字段不报错");
+  assert.equal(mm3.Model.frames[0].label, "L");
+});
+
+test("粘贴节点复制外框时保留样式", () => {
+  const { mm, root } = freshRoot();
+  const a = mm.Model.addChild(root, "a");
+  mm.Model.addChild(a, "a1");
+  const f = mm.Model.addFrame([a.id, a.children[0].id]);
+  mm.Model.setFrameStyle(f.id, "borderWidth", 4);
+  mm.Model.selectNode(a, false);
+  assert.equal(mm.Model.copySelection(), true);
+  const target = mm.Model.addChild(root, "t");
+  assert.equal(mm.Model.pasteInto(target, "after"), true);
+  const pasted = mm.Model.frames.find((x) => x.id !== f.id);
+  assert.ok(pasted, "应复制出外框");
+  assert.equal(pasted.style.borderWidth, 4, "外框样式随粘贴复制");
+});

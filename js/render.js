@@ -478,17 +478,21 @@
     const geo = frameGeometry(f, visibleIds);
     if (!geo) return;
     const selected = !plain && M.Editor && M.Editor.selectedFrameId() === f.id;
-    const color = selected ? theme.accent : theme.line;
+    const st = f.style || {};
+    const color = st.borderColor || (selected ? theme.accent : theme.line);
+    const width = st.borderWidth != null ? st.borderWidth : (selected ? 2.5 : 1.5);
+    const radius = st.radius != null ? st.radius : 12;
+    const dash = st.dash === false ? "none" : "8 5";
     svgEl("rect", {
       class: "frame-rect", "data-id": f.id,
-      x: geo.x, y: geo.y, width: geo.w, height: geo.h, rx: 12,
-      fill: "none", stroke: color, "stroke-width": selected ? 2.5 : 1.5,
-      "stroke-dasharray": "8 5", "pointer-events": "none"
+      x: geo.x, y: geo.y, width: geo.w, height: geo.h, rx: radius,
+      fill: "none", stroke: color, "stroke-width": width,
+      "stroke-dasharray": dash, "pointer-events": "none"
     }, g);
     if (!plain) {
       svgEl("rect", {
         class: "frame-hit", "data-id": f.id,
-        x: geo.x, y: geo.y, width: geo.w, height: geo.h, rx: 12,
+        x: geo.x, y: geo.y, width: geo.w, height: geo.h, rx: radius,
         fill: "none", stroke: "transparent", "stroke-width": 14,
         "pointer-events": "stroke", cursor: "pointer"
       }, g);

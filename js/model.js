@@ -557,6 +557,26 @@
     f.label = label ? label : null;
   }
 
+  function setFrameStyle(id, key, value) {
+    const f = state.frames.find((fr) => fr.id === id);
+    if (!f) return;
+    if (value == null) {
+      if (f.style) {
+        delete f.style[key];
+        if (!Object.keys(f.style).length) f.style = null;
+      }
+    } else {
+      if (!f.style) f.style = {};
+      f.style[key] = value;
+    }
+  }
+
+  function resetFrameStyle(id) {
+    const f = state.frames.find((fr) => fr.id === id);
+    if (!f) return;
+    f.style = null;
+  }
+
   function clearRelations() {
     state.relations = [];
   }
@@ -595,7 +615,10 @@
     }
     for (const f of state.frames) {
       if (f.nodes.every((id) => remap.has(id))) {
-        state.frames.push({ id: uid("f"), nodes: f.nodes.map((id) => remap.get(id)), label: f.label });
+        state.frames.push({
+          id: uid("f"), nodes: f.nodes.map((id) => remap.get(id)), label: f.label,
+          style: f.style ? JSON.parse(JSON.stringify(f.style)) : undefined
+        });
       }
     }
     return true;
@@ -678,7 +701,7 @@
     selectedNodes, primaryNode, setSelection,
     copySelection, pasteInto,
     addRelation, removeRelation, setRelationLabel, setRelationLabelT, relationsFor, clearRelations,
-    addFrame, removeFrame, setFrameLabel,
+    addFrame, removeFrame, setFrameLabel, setFrameStyle, resetFrameStyle,
     serialize, deserialize, reset, replaceRoot, setSettings
   };
 })();

@@ -142,7 +142,7 @@
   function showWelcome() {
     const dlg = modal({
       title: "\u6b22\u8fce\u4f7f\u7528\u601d\u7eea\u56fe\u5de5\u5177",
-      body: "<div class='m-hint'>\u9009\u62e9\u4e00\u4e2a\u6a21\u677f\u5f00\u59cb\uff0c\u6216\u76f4\u63a5\u521b\u5efa\u7a7a\u767d\u601d\u7eea\u56fe\u3002\u5411\u4e0a\u62d6\u52a8\u7a7a\u767d\u533a\u57df\u53ef\u5e73\u79fb\u753b\u5e03\uff0c\u6eda\u8f6e\u53ef\u7f29\u653e\u3002\u53f3\u952e\u8282\u70b9\u53ef\u6dfb\u52a0\u5916\u6846\u5206\u7ec4\u3002</div>" +
+      body: "<div class='m-hint'>\u9009\u62e9\u4e00\u4e2a\u6a21\u677f\u5f00\u59cb\uff0c\u6216\u76f4\u63a5\u521b\u5efa\u7a7a\u767d\u601d\u7eea\u56fe\u3002\u5411\u4e0a\u62d6\u52a8\u7a7a\u767d\u533a\u57df\u53ef\u5e73\u79fb\u753b\u5e03\uff0c\u6eda\u8f6e\u53ef\u7f29\u653e\u3002\u53f3\u952e\u8282\u70b9\u53ef\u6dfb\u52a0\u5916\u6846\u5206\u7ec4\uff0c\u70b9\u51fb\u5916\u6846\u53ef\u8c03\u6574\u5176\u6837\u5f0f\u3002</div>" +
         tplBody(""),
       ok: "\u6682\u4e0d\uff0c\u5148\u770b\u770b\u793a\u4f8b"
     });
@@ -227,15 +227,8 @@
   function exportMarkdown() {
     const text = M.Markdown.serialize(M.Model.root);
     const blob = new Blob([text], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "mindmap.md";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-    toast("\u5df2\u5bfc\u51fa Markdown");
+    M.Exporter.saveBlob(blob, "mindmap.md", "text/markdown")
+      .then((ok) => { if (ok) toast("\u5df2\u5bfc\u51fa Markdown"); });
   }
 
   function applyTheme(themeId) {

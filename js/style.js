@@ -3,13 +3,14 @@
 
   const M = (window.MM = window.MM || {});
 
-  let panel = null, hint = null, controls = null, open = false, recording = false;
+  let panel = null, hint = null, controls = null, title = null, open = false, recording = false;
   let els = {};
 
   function init() {
     panel = document.getElementById("style-panel");
     hint = document.getElementById("style-hint");
     controls = document.getElementById("style-controls");
+    title = document.getElementById("style-title");
     panel.querySelector(".panel-close").addEventListener("click", () => setOpen(false));
     els = {
       bg: panel.querySelector("#st-bg"),
@@ -21,7 +22,8 @@
       radiusV: panel.querySelector("#st-radius-v"),
       fs: panel.querySelector("#st-fs"),
       fsV: panel.querySelector("#st-fs-v"),
-      bold: panel.querySelector("#st-bold")
+      bold: panel.querySelector("#st-bold"),
+      dash: panel.querySelector("#st-dash")
     };
     els.bg.addEventListener("input", () => setStyle("bg", els.bg.value));
     els.text.addEventListener("input", () => setStyle("textColor", els.text.value));
@@ -40,6 +42,10 @@
     });
     els.bold.addEventListener("change", () => {
       setStyle("bold", els.bold.checked ? true : null);
+      endRecord();
+    });
+    els.dash.addEventListener("change", () => {
+      setStyle("dash", els.dash.checked ? true : false);
       endRecord();
     });
     for (const id of ["st-bg", "st-text", "st-border", "st-border-w", "st-radius", "st-fs"]) {
@@ -77,7 +83,28 @@
     return open;
   }
 
+  function frameTarget() {
+    if (!(M.Editor && M.Editor.selectedFrameId)) return null;
+    const id = M.Editor.selectedFrameId();
+    if (!id) return null;
+    return M.Model.frames.find((f) => f.id === id) || null;
+  }
+
+  function isFrameMode() {
+    return !!frameTarget();
+  }
+
   function setStyle(key, value) {
+    const frame = frameTarget();
+    if (frame) {
+      if (!recording) {
+        recording = true;
+        M.Model.record();
+      }
+      M.Model.setFrameStyle(frame.id, key, value);
+      M.Model.touch();
+      return;
+    }
     const nodes = M.Model.selectedNodes();
     if (!nodes.length) return;
     if (!recording) {
@@ -103,6 +130,16 @@
   }
 
   function resetAll() {
+    const frame = frameTarget();
+    if (frame) {
+      if (!recording) {
+        recording = true;
+        M.Model.record();
+      }
+      M.Model.resetFrameStyle(frame.id);
+      M.Model.touch();
+      return;
+    }
     const nodes = M.Model.selectedNodes();
     if (!nodes.length) return;
     if (!recording) {
@@ -115,17 +152,35 @@
 
   function refresh() {
     if (!open) return;
-    const node = M.Model.primaryNode();
-    if (!node) {
+    const frame = frameTarget();
+    const node = frame ? null : M.Model.primaryNode();
+    if (!frame && !node) {
       hint.style.display = "block";
       controls.style.display = "none";
       return;
     }
     hint.style.display = "none";
     controls.style.display = "block";
-    const s = node.style || {};
+    title.textContent = frame ? "\u5916\u6846\u6837\u5f0f" : "\u8282\u70b9\u6837\u5f0f";
+    for (const row of controls.querySelectorAll(".st-row")) {
+      const mode = row.getAttribute("data-mode");
+      row.style.display = mode && mode !== (frame ? "frame" : "node") ? "none" : "";
+    }
     const theme = M.Theme.get();
+    if (frame) {
+      const s = frame.style || {};
+      els.border.value = s.borderColor || "#000000";
+      const bw = s.borderWidth != null ? s.borderWidth : 1.5;
+      els.borderW.value = bw;
+      els.borderWV.textContent = bw;
+      const r = s.radius != null ? s.radius : 12;
+      els.radius.value = r;
+      els.radiusV.textContent = r;
+      els.dash.checked = s.dash !== false;
+      return;
+    }
     const isRoot = node.depth === 0;
+    const s = node.style || {};
     els.bg.value = s.bg || "#000000";
     els.text.value = s.textColor || "#000000";
     els.border.value = s.borderColor || "#000000";

@@ -83,17 +83,18 @@
     </aside>
 
     <aside id="style-panel" class="panel right" style="display:none">
-      <div class="panel-head"><span>节点样式</span><span class="panel-close">✕</span></div>
+      <div class="panel-head"><span id="style-title">节点样式</span><span class="panel-close">✕</span></div>
       <div class="panel-body">
         <div id="style-hint">选中一个节点后在此调整样式</div>
         <div id="style-controls" style="display:none">
-          <div class="st-row"><label>背景色</label><input type="color" id="st-bg"><button class="st-rst" data-reset="bg" title="恢复默认">↺</button></div>
-          <div class="st-row"><label>文字颜色</label><input type="color" id="st-text"><button class="st-rst" data-reset="textColor" title="恢复默认">↺</button></div>
+          <div class="st-row" data-mode="node"><label>背景色</label><input type="color" id="st-bg"><button class="st-rst" data-reset="bg" title="恢复默认">↺</button></div>
+          <div class="st-row" data-mode="node"><label>文字颜色</label><input type="color" id="st-text"><button class="st-rst" data-reset="textColor" title="恢复默认">↺</button></div>
           <div class="st-row"><label>边框颜色</label><input type="color" id="st-border"><button class="st-rst" data-reset="borderColor" title="恢复默认">↺</button></div>
           <div class="st-row"><label>边框粗细</label><input type="range" id="st-border-w" min="0" max="5" step="0.5"><span id="st-border-w-v"></span><button class="st-rst" data-reset="borderWidth" title="恢复默认">↺</button></div>
           <div class="st-row"><label>圆角</label><input type="range" id="st-radius" min="0" max="30" step="1"><span id="st-radius-v"></span><button class="st-rst" data-reset="radius" title="恢复默认">↺</button></div>
-          <div class="st-row"><label>字号</label><input type="range" id="st-fs" min="10" max="32" step="1"><span id="st-fs-v"></span><button class="st-rst" data-reset="fontSize" title="恢复默认">↺</button></div>
-          <div class="st-row"><label>加粗</label><input type="checkbox" id="st-bold"></div>
+          <div class="st-row" data-mode="frame"><label>虚线框</label><input type="checkbox" id="st-dash"></div>
+          <div class="st-row" data-mode="node"><label>字号</label><input type="range" id="st-fs" min="10" max="32" step="1"><span id="st-fs-v"></span><button class="st-rst" data-reset="fontSize" title="恢复默认">↺</button></div>
+          <div class="st-row" data-mode="node"><label>加粗</label><input type="checkbox" id="st-bold"></div>
           <div class="st-actions"><button id="st-reset">恢复默认</button></div>
         </div>
       </div>

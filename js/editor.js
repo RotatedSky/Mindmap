@@ -95,6 +95,7 @@
 
   function selectFrame(id) {
     ed.selectedFrameId = id;
+    M.Model.clearSelection();
     M.Render.render();
   }
 
@@ -580,6 +581,7 @@
     }
     if (ed.mode === "frame") {
       ed.mode = null;
+      M.Style.setOpen(true);
       return;
     }
     if (ed.mode === "node") {
