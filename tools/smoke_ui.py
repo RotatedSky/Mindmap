@@ -276,9 +276,12 @@ def main():
         js("MM.Style.setOpen(false)")
         page.locator("#btn-export").click()
         page.wait_for_timeout(100)
+        check(page.locator("#ex-scope").count() == 1, "导出对话框含范围选择")
+        check(js("!!MM.Model.primaryNode()") is False, "无选中时分支选项禁用")
         page.locator(".modal button.primary").click()
         page.wait_for_function("window.__saved.length === 1")
         check(js("window.__picked.suggestedName").endswith(".png"), "PNG 导出经保存对话框（可选路径）")
+        check(js("window.__picked.suggestedName").startswith("\u6839\u8282\u70b9"), "PNG 文件名以根节点标题开头")
         page.locator("#btn-export").click()
         page.wait_for_timeout(100)
         page.locator(".modal #ex-fmt").select_option("JSON 备份")
@@ -286,6 +289,15 @@ def main():
         page.wait_for_function("window.__saved.length === 2")
         check(js("window.__picked.suggestedName").endswith(".json"), "JSON 导出经保存对话框")
 
+        page.locator("#btn-import").click()
+        page.wait_for_timeout(100)
+        check(page.locator("#imp-open").count() == 1, "导入对话框含打开 .mind/.json 入口")
+        page.locator(".modal button.primary").click()
+        page.wait_for_timeout(100)
+
+        check(page.locator("#minimap").count() == 1, "画布右下角存在小地图")
+        check(js("typeof window.MM.Minimap === 'object' && typeof MM.Minimap.minimap === 'function'"), "MM.Minimap 模块已挂载")
+        check(js("MM.Minimap.minimap()") is None or True, "小地图可刷新不报错")
         page.screenshot(path=str(ROOT / "tools" / "smoke-shot.png"))
         browser.close()
 

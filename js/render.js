@@ -589,6 +589,7 @@
       svg.world.setAttribute("transform", "translate(" + tx + " " + ty + ") scale(" + s + ")");
     }
     if (M.Editor && M.Editor.repositionEdit) M.Editor.repositionEdit();
+    if (M.Minimap && M.Minimap.drawViewport) M.Minimap.drawViewport();
   }
 
   function worldToScreen(x, y) {
@@ -678,19 +679,23 @@
     }, world);
     setTransform(svg.tx, svg.ty, svg.s);
     applySelectionClasses();
+    if (M.Minimap && M.Minimap.minimap) M.Minimap.minimap();
   }
 
-  function toSVGString(bounds, bg) {
+  function toSVGString(bounds, bg, scopeRoot) {
     const tmp = document.createElementNS(NS, "svg");
     svg.defs = svgEl("defs", {}, tmp);
     svg.nodeEls.clear();
     const theme = M.Theme.get();
     const g = svgEl("g", {}, tmp);
-    const visible = M.Model.visibleNodes(M.Model.root);
+    const root = scopeRoot || M.Model.root;
+    const visible = M.Model.visibleNodes(root);
     const pad = 40;
     const b = bounds || M.Layout.bounds(visible);
     const vis = new Set(visible.map((n) => n.id));
+    const frameInScope = (f) => !scopeRoot || f.nodes.every((id) => vis.has(id));
     for (const f of M.Model.frames) {
+      if (!frameInScope(f)) continue;
       const geo = frameGeometry(f, vis);
       if (!geo) continue;
       b.minX = Math.min(b.minX, geo.x);
@@ -707,8 +712,8 @@
       svgEl("rect", { x: offX, y: offY, width: W, height: H, fill: bgColor }, g);
     }
     for (const n of visible) {
-      if (n !== M.Model.root) {
-        const parent = M.Model.findParent(M.Model.root, n.id);
+      if (n !== root) {
+        const parent = M.Model.findParent(root, n.id);
         svgEl("path", {
           d: connectorPath(parent, n, theme),
           fill: "none", stroke: lineColorFor(n.depth, theme), "stroke-width": 2
@@ -720,7 +725,9 @@
         drawRelation(g, rel, theme, true);
       }
     }
-    for (const f of M.Model.frames) drawFrame(f, g, theme, vis, true);
+    for (const f of M.Model.frames) {
+      if (frameInScope(f)) drawFrame(f, g, theme, vis, true);
+    }
     for (const n of visible) buildNode(g, n, theme, {});
     const out = document.createElementNS(NS, "svg");
     out.setAttribute("xmlns", NS);

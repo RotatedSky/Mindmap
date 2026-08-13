@@ -153,9 +153,15 @@
   function showImportDialog() {
     const dlg = modal({
       title: "\u5bfc\u5165",
-      body: "<div class='m-row'><button class='m-option' id='imp-json'>\u4ece JSON \u6587\u4ef6\u5bfc\u5165</button></div>" +
+      body: "<div class='m-row'><button class='m-option' id='imp-open'>\u6253\u5f00 .mind / .json \u6587\u4ef6\uff08\u53ef\u56de\u5199\u4fdd\u5b58\uff09</button></div>" +
+        "<div class='m-row'><button class='m-option' id='imp-json'>\u4ece JSON \u6587\u4ef6\u5bfc\u5165</button></div>" +
         "<div class='m-row'><button class='m-option' id='imp-md'>\u4ece Markdown \u6587\u672c\u5bfc\u5165</button></div>",
       ok: "\u5173\u95ed"
+    });
+    dlg.el.querySelector("#imp-open").addEventListener("click", () => {
+      dlg.close();
+      const r = M.Storage.openFile();
+      if (r === null) $("file-input").click();
     });
     dlg.el.querySelector("#imp-json").addEventListener("click", () => {
       dlg.close();
@@ -168,11 +174,13 @@
   }
 
   function showExportDialog() {
+    const hasPrimary = !!M.Model.primaryNode();
     const body = "" +
       "<div class='m-row'><label>\u683c\u5f0f</label><select id='ex-fmt'><option>PNG</option><option>JPEG</option><option>SVG</option><option>PDF</option><option value='markdown'>Markdown \u5927\u7eb2</option><option value='json'>JSON \u5907\u4efd</option></select></div>" +
       "<div class='m-row' id='ex-scale-row'><label>\u5206\u8fa8\u7387</label><select id='ex-scale'><option value='1'>1x</option><option value='2' selected>2x\uff08\u63a8\u8350\uff09</option><option value='3'>3x</option></select></div>" +
       "<div class='m-row' id='ex-bg-row'><label>\u80cc\u666f</label><select id='ex-bg'><option value='theme'>\u4e3b\u9898\u80cc\u666f</option><option value='white'>\u767d\u8272</option><option value='transparent'>\u900f\u660e\uff08PNG/SVG\uff09</option></select></div>" +
       "<div class='m-row' id='ex-multi-row' style='display:none'><label><input type='checkbox' id='ex-multi'> A4 \u5206\u9875\u6253\u5370\u7248\uff08\u591a\u9875\uff09</label></div>" +
+      "<div class='m-row' id='ex-scope-row'><label>\u8303\u56f4</label><select id='ex-scope'><option value='all'>\u6574\u5f20\u601d\u7eea\u56fe</option><option value='branch'>\u4ec5\u9009\u4e2d\u8282\u70b9\u5206\u652f</option></select></div>" +
       "<div class='m-hint'>\u56fe\u7247/\u6587\u6863\u5bfc\u51fa\u6548\u679c\u8ddf\u968f\u5f53\u524d\u4e3b\u9898\u4e0e\u5c55\u5f00\u72b6\u6001\uff1b\u8fdc\u7a0b\u56fe\u7247\u4e0d\u80fd\u4fdd\u8bc1\u8fdb\u5165\u5bfc\u51fa\u6587\u4ef6\u3002</div>";
     modal({
       title: "\u5bfc\u51fa",
@@ -180,12 +188,14 @@
       ok: "\u5bfc\u51fa",
       onOk: (root) => {
         const fmt = root.querySelector("#ex-fmt").value.toLowerCase();
-        if (fmt === "markdown") { exportMarkdown(); return true; }
+        const scopeEl = root.querySelector("#ex-scope");
+        const scope = scopeEl && scopeEl.value === "branch" ? M.Model.primaryNode() : null;
+        if (fmt === "markdown") { exportMarkdown(scope); return true; }
         if (fmt === "json") { M.Storage.exportJSON(); return true; }
         const scale = parseInt(root.querySelector("#ex-scale").value, 10);
         const bg = root.querySelector("#ex-bg").value;
         const multi = root.querySelector("#ex-multi").checked;
-        const opts = { scale, bg, multipage: multi };
+        const opts = { scale, bg, multipage: multi, scope };
         if (fmt === "png") M.Exporter.exportPNG(opts);
         else if (fmt === "jpeg") M.Exporter.exportJPEG(opts);
         else if (fmt === "svg") M.Exporter.exportSVG(opts);
@@ -198,12 +208,16 @@
     const scaleRow = m.querySelector("#ex-scale-row");
     const bgRow = m.querySelector("#ex-bg-row");
     const multiRow = m.querySelector("#ex-multi-row");
+    const scopeRow = m.querySelector("#ex-scope-row");
+    const scopeSel = m.querySelector("#ex-scope");
+    if (!hasPrimary) scopeSel.disabled = true;
     fmtSelEl.addEventListener("change", () => {
       const v = fmtSelEl.value;
       const isImage = v === "PNG" || v === "JPEG" || v === "SVG" || v === "PDF";
       scaleRow.style.display = isImage ? "flex" : "none";
       bgRow.style.display = isImage ? "flex" : "none";
       multiRow.style.display = v === "PDF" ? "flex" : "none";
+      scopeRow.style.display = (isImage || v === "markdown") ? "flex" : "none";
     });
   }
 
@@ -224,11 +238,11 @@
     });
   }
 
-  function exportMarkdown() {
-    const text = M.Markdown.serialize(M.Model.root);
+  function exportMarkdown(scope) {
+    const text = M.Markdown.serialize(scope || M.Model.root);
     const blob = new Blob([text], { type: "text/markdown" });
-    M.Exporter.saveBlob(blob, "mindmap.md", "text/markdown")
-      .then((ok) => { if (ok) toast("\u5df2\u5bfc\u51fa Markdown"); });
+    M.Exporter.saveBlob(blob, (scope ? (scope.text.slice(0, 40) || "branch") : "mindmap") + ".md", "text/markdown")
+      .then((ok) => { if (ok) toast("\u5df2\u5bfc\u51fa Markdown" + (scope ? "\uff08\u5206\u652f\uff09" : "")); });
   }
 
   function applyTheme(themeId) {
@@ -260,6 +274,7 @@
     $("btn-undo").addEventListener("click", () => M.Model.undo());
     $("btn-redo").addEventListener("click", () => M.Model.redo());
     $("btn-import").addEventListener("click", showImportDialog);
+    $("btn-save").addEventListener("click", () => M.Storage.saveToFile());
     $("file-input").addEventListener("change", (e) => {
       const f = e.target.files && e.target.files[0];
       if (f) M.Storage.importJSON(f);
@@ -381,16 +396,7 @@
     $("btn-notes").classList.toggle("primary", v);
   }
 
-  function init() {
-    M.Render.init($("canvas"));
-    M.Search.init();
-    M.Outline.init();
-    M.Notes.init();
-    M.Style.init();
-    M.Editor.init($("canvas-wrap"), $("canvas"));
-    wireToolbar();
-
-    M.Storage.load();
+  function start() {
     syncControls();
     M.Layout.layoutAll();
     M.Render.render();
@@ -413,6 +419,19 @@
         navigator.serviceWorker.register("sw.js").catch(() => {});
       }
     }
+  }
+
+  function init() {
+    M.Render.init($("canvas"));
+    M.Search.init();
+    M.Outline.init();
+    M.Notes.init();
+    M.Style.init();
+    M.Editor.init($("canvas-wrap"), $("canvas"));
+    M.Minimap.init($("minimap"));
+    wireToolbar();
+
+    M.Storage.init().then(start);
   }
 
   if (document.readyState === "loading") {

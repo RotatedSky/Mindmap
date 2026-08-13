@@ -75,16 +75,92 @@ function makeElement(tag, getSingleton) {
   return el;
 }
 
+function createIndexedDBStub() {
+  const stores = new Map();
+  function ensure(name) {
+    if (!stores.has(name)) stores.set(name, new Map());
+    return stores.get(name);
+  }
+  const db = {
+    objectStoreNames: { contains: (n) => stores.has(n) },
+    createObjectStore(n) { ensure(n); return {}; },
+    transaction(storeName) {
+      const map = ensure(storeName);
+      return {
+        objectStore: () => ({
+          put: (val, key) => makeReq(undefined, () => { map.set(key, val); return undefined; }),
+          get: (key) => makeReq(undefined, () => map.get(key)),
+          clear: () => makeReq(undefined, () => { map.clear(); return undefined; })
+        })
+      };
+    }
+  };
+  function makeReq(initial, run) {
+    const req = { result: initial, _cb: null, _err: null };
+    Object.defineProperty(req, "onsuccess", {
+      set(fn) {
+        this._cb = fn;
+        if (fn) Promise.resolve().then(() => { this.result = run(); fn({ target: this }); });
+      },
+      get() { return this._cb; }
+    });
+    Object.defineProperty(req, "onerror", {
+      set(fn) { this._err = fn; },
+      get() { return this._err; }
+    });
+    return req;
+  }
+  return {
+    open() {
+      const req = { result: db, _cb: null, _up: null, _err: null };
+      Object.defineProperty(req, "onsuccess", {
+        set(fn) {
+          this._cb = fn;
+          if (fn) Promise.resolve().then(() => {
+            if (this._up) this._up({ target: req });
+            fn({ target: this });
+          });
+        },
+        get() { return this._cb; }
+      });
+      Object.defineProperty(req, "onupgradeneeded", {
+        set(fn) { this._up = fn; },
+        get() { return this._up; }
+      });
+      Object.defineProperty(req, "onerror", {
+        set(fn) { this._err = fn; },
+        get() { return this._err; }
+      });
+      return req;
+    }
+  };
+}
+
 function createSandbox() {
   const timers = new Map();
   let nextTimer = 1;
 
-  const canvasCtx = { font: "", measureText: measureTextStub };
+  const canvasCtx = {
+    font: "", measureText: measureTextStub,
+    setTransform() {}, clearRect() {}, fillRect() {}, fill() {}, stroke() {},
+    beginPath() {}, rect() {}, moveTo() {}, lineTo() {}, strokeRect() {},
+    translate() {}, scale() {}, save() {}, restore() {},
+    fillStyle: "", strokeStyle: "", lineWidth: 1
+  };
   const singletonEl = makeElement("div", () => singletonEl);
+  const canvasStub = (vars) => {
+    const el = makeElement("canvas", () => singletonEl);
+    el.width = 180; el.height = 120;
+    el.clientWidth = 180; el.clientHeight = 120;
+    el.getContext = () => canvasCtx;
+    el.getBoundingClientRect = () => ({ left: 0, top: 0, width: 180, height: 120 });
+    el.setPointerCapture = () => {};
+    return el;
+  };
 
   const documentStub = {
     createElement(tag) {
-      if (tag === "canvas") return { getContext: () => canvasCtx };
+      if (tag === "canvas") return canvasStub();
       return makeElement(tag, () => singletonEl);
     },
     createElementNS(ns, tag) { return makeElement(tag, () => singletonEl); },
@@ -130,6 +206,7 @@ function createSandbox() {
     setTimeout: windowStub.setTimeout,
     clearTimeout: windowStub.clearTimeout,
     Blob: function Blob(parts, opts) { this.parts = parts; this.type = (opts && opts.type) || ""; },
+    indexedDB: createIndexedDBStub(),
     URL: {
       createObjectURL() { return "blob:mock"; },
       revokeObjectURL() {}

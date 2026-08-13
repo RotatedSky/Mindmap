@@ -162,3 +162,91 @@ test("导出尺寸覆盖外框范围，背景色正确", () => {
   const w = parseFloat(svg.match(/width="([\d.]+)"/)[1]);
   assert.ok(w >= fg.x + fg.w - bounds.minX + 40, "导出宽度应覆盖外框右边缘");
 });
+
+test("分支导出：scopeRoot 只渲染该分支子树", () => {
+  const { mm } = fresh();
+  const { root, b } = fixture(mm);
+  mm.Theme.get = () => THEME;
+  mm.Layout.treeLayout(root, "right", THEME);
+  const c = mm.Model.find(root, mm.Model.root.children[2].id);
+  mm.Model.addChild(c, "C1");
+  mm.Layout.treeLayout(root, "right", THEME);
+  const full = mm.Render.toSVGString(null, "white");
+  const branch = mm.Render.toSVGString(null, "white", b);
+  assert.ok(full.includes("C1"), "整图应包含 C1");
+  assert.ok(!branch.includes("C1"), "分支导出不应包含分支外节点 C1");
+  assert.ok(branch.includes(b.text), "分支图应包含分支根文本");
+  const branchBounds = mm.Layout.bounds(mm.Model.visibleNodes(b));
+  const fullBounds = mm.Layout.bounds(mm.Model.visibleNodes(root));
+  assert.ok(branchBounds.maxX < fullBounds.maxX, "分支包围盒应小于整图");
+  const bW = parseFloat(branch.match(/width="([\d.]+)"/)[1]);
+  assert.ok(bW < parseFloat(full.match(/width="([\d.]+)"/)[1]), "分支导出宽度应小于整图");
+});
+
+test("分支导出不包含分支外节点与外框", () => {
+  const { mm } = fresh();
+  const { root, a, b } = fixture(mm);
+  mm.Theme.get = () => THEME;
+  mm.Layout.treeLayout(root, "right", THEME);
+  const c = mm.Model.find(root, mm.Model.root.children[2].id);
+  mm.Model.addChild(c, "C1");
+  mm.Layout.treeLayout(root, "right", THEME);
+  const branch = mm.Render.toSVGString(null, "white", a);
+  assert.ok(!branch.includes("C1"), "分支外节点不应出现");
+  assert.ok(!/<rect[^>]*class="frame-rect"/.test(branch), "成员不全的分支不应包含外框");
+  const branchFull = mm.Render.toSVGString(null, "white", root);
+  const full = mm.Render.toSVGString(null, "white");
+  assert.equal(branchFull, full, "以根为 scope 与整图一致");
+});
+
+test("exportSVG 分支导出传 scope 且文件名用根文本标题", async () => {
+  const env = setup(["model", "layout", "render", "exporter"]);
+  const { mm, sandbox } = env;
+  mm.App = { toast() {} };
+  const root = mm.Model.createNode("root");
+  const a = mm.Model.addChild(root, "A-BR");
+  mm.Model.addChild(a, "A1");
+  mm.Model.replaceRoot(root);
+  mm.Theme.get = () => THEME;
+  mm.Layout.treeLayout(root, "right", THEME);
+  let captured = null;
+  sandbox.window.showSaveFilePicker = async (opts) => {
+    captured = opts;
+    return {
+      createWritable: async () => ({
+        write: async () => {},
+        close: async () => {}
+      })
+    };
+  };
+  const svgCalls = [];
+  const origSVG = mm.Render.toSVGString.bind(mm.Render);
+  mm.Render.toSVGString = (b, bg, scope) => { svgCalls.push(scope ? scope.text : null); return origSVG(b, bg, scope); };
+  await mm.Exporter.exportSVG({ scope: a });
+  assert.equal(svgCalls[0], "A-BR", "SVG 导出应把 scope 传给 toSVGString");
+  assert.ok(captured.suggestedName.startsWith("root-"), "SVG 文件名以根文本标题开头: " + captured.suggestedName);
+  assert.ok(captured.suggestedName.endsWith(".svg"), "SVG 文件名以 .svg 结尾");
+});
+
+test("exportSVG 整图导出文件名用根文本标题", async () => {
+  const env = setup(["model", "layout", "render", "exporter"]);
+  const { mm, sandbox } = env;
+  mm.App = { toast() {} };
+  const root = mm.Model.createNode("我的标题 / 带冒号: 测试");
+  mm.Model.replaceRoot(root);
+  mm.Theme.get = () => THEME;
+  mm.Layout.treeLayout(root, "right", THEME);
+  let captured = null;
+  sandbox.window.showSaveFilePicker = async (opts) => {
+    captured = opts;
+    return {
+      createWritable: async () => ({
+        write: async () => {},
+        close: async () => {}
+      })
+    };
+  };
+  await mm.Exporter.exportSVG({});
+  assert.ok(captured.suggestedName.startsWith("我的标题 带冒号 测试"), "文件名清洗非法字符: " + captured.suggestedName);
+  assert.ok(!/[\\/:*?"<>]/.test(captured.suggestedName), "文件名不含非法字符");
+});

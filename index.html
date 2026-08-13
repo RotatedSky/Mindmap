@@ -46,6 +46,7 @@
     </div>
     <div class="tb-group">
       <button id="btn-import" title="导入 JSON 文件 / Markdown 大纲">导入</button>
+      <button id="btn-save" title="保存到本地 .mind 文件（打开文件后可回写；未打开时另存为）">保存</button>
       <button id="btn-export" class="primary" title="导出 PNG/JPEG/SVG/PDF">导出</button>
       <button id="btn-help" title="快捷键帮助 (?)">?</button>
     </div>
@@ -73,6 +74,7 @@
         <button id="btn-zoom-out" title="缩小">−</button>
         <button id="btn-zoom-fit" title="适应画布">⛶</button>
       </div>
+      <canvas id="minimap" width="180" height="120" title="小地图（点击跳转）"></canvas>
     </div>
 
     <aside id="notes-panel" class="panel right" style="display:none">
@@ -110,6 +112,7 @@
   <script src="js/math.js"></script>
   <script src="js/layout.js"></script>
   <script src="js/render.js"></script>
+  <script src="js/minimap.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/search.js"></script>
   <script src="js/outline.js"></script>

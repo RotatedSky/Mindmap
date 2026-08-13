@@ -11,6 +11,12 @@
     return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds());
   }
 
+  function baseName() {
+    const title = String(M.Model.root.text || "").trim()
+      .replace(/[\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+    return (title || "mindmap") + "-" + stamp();
+  }
+
   function download(blob, name) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -47,10 +53,10 @@
     return true;
   }
 
-  function buildSVG(bg) {
-    const visible = M.Model.visibleNodes(M.Model.root);
+  function buildSVG(bg, scopeRoot) {
+    const visible = scopeRoot ? M.Model.visibleNodes(scopeRoot) : M.Model.visibleNodes(M.Model.root);
     const bounds = M.Layout.bounds(visible);
-    return M.Render.toSVGString(bounds, bg);
+    return M.Render.toSVGString(bounds, bg, scopeRoot);
   }
 
   function svgToCanvas(svgStr, scale) {
@@ -71,11 +77,12 @@
 
   async function exportPNG(opts) {
     try {
-      const svgStr = buildSVG(opts.bg);
+      const scope = opts.scope || null;
+      const svgStr = buildSVG(opts.bg, scope);
       const canvas = await svgToCanvas(svgStr, opts.scale || 2);
       const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
-      const ok = await saveBlob(blob, "mindmap-" + stamp() + ".png", "image/png");
-      if (ok) M.App.toast("\u5df2\u5bfc\u51fa PNG");
+      const ok = await saveBlob(blob, baseName() + ".png", "image/png");
+      if (ok) M.App.toast("\u5df2\u5bfc\u51fa PNG" + (scope ? "\uff08\u5206\u652f\uff09" : ""));
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }
@@ -83,11 +90,12 @@
 
   async function exportJPEG(opts) {
     try {
-      const svgStr = buildSVG("white");
+      const scope = opts.scope || null;
+      const svgStr = buildSVG("white", scope);
       const canvas = await svgToCanvas(svgStr, opts.scale || 2);
       const blob = await new Promise((r) => canvas.toBlob(r, "image/jpeg", 0.92));
-      const ok = await saveBlob(blob, "mindmap-" + stamp() + ".jpg", "image/jpeg");
-      if (ok) M.App.toast("\u5df2\u5bfc\u51fa JPEG");
+      const ok = await saveBlob(blob, baseName() + ".jpg", "image/jpeg");
+      if (ok) M.App.toast("\u5df2\u5bfc\u51fa JPEG" + (scope ? "\uff08\u5206\u652f\uff09" : ""));
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }
@@ -95,10 +103,11 @@
 
   function exportSVG(opts) {
     try {
-      const svgStr = buildSVG(opts.bg);
+      const scope = opts.scope || null;
+      const svgStr = buildSVG(opts.bg, scope);
       const blob = new Blob([svgStr], { type: "image/svg+xml" });
-      saveBlob(blob, "mindmap-" + stamp() + ".svg", "image/svg+xml")
-        .then((ok) => { if (ok) M.App.toast("\u5df2\u5bfc\u51fa SVG"); });
+      saveBlob(blob, baseName() + ".svg", "image/svg+xml")
+        .then((ok) => { if (ok) M.App.toast("\u5df2\u5bfc\u51fa SVG" + (scope ? "\uff08\u5206\u652f\uff09" : "")); });
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }
@@ -173,7 +182,8 @@
 
   async function exportPDFSingle(opts) {
     try {
-      const svgStr = buildSVG(opts.bg);
+      const scope = opts.scope || null;
+      const svgStr = buildSVG(opts.bg, scope);
       const canvas = await svgToCanvas(svgStr, opts.scale || 2);
       const jpeg = canvas.toDataURL("image/jpeg", 0.92);
       const wPt = canvas.width / PX_PER_PT, hPt = canvas.height / PX_PER_PT;
@@ -183,8 +193,8 @@
         imgW: canvas.width, imgH: canvas.height,
         draw: { x: 0, y: 0, w: canvas.width, h: canvas.height }
       }]);
-      const ok = await saveBlob(new Blob([strToBytes(pdf)], { type: "application/pdf" }), "mindmap-" + stamp() + ".pdf", "application/pdf");
-      if (ok) M.App.toast("\u5df2\u5bfc\u51fa PDF\uff08\u5355\u9875\uff09");
+      const ok = await saveBlob(new Blob([strToBytes(pdf)], { type: "application/pdf" }), baseName() + ".pdf", "application/pdf");
+      if (ok) M.App.toast("\u5df2\u5bfc\u51fa PDF\uff08\u5355\u9875\uff09" + (scope ? "\uff08\u5206\u652f\uff09" : ""));
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }
@@ -192,7 +202,8 @@
 
   async function exportPDFMultipage(opts) {
     try {
-      const svgStr = buildSVG("white");
+      const scope = opts.scope || null;
+      const svgStr = buildSVG("white", scope);
       const canvas = await svgToCanvas(svgStr, Math.min(opts.scale || 2, 3));
     const A4W = Math.round(210 * PX_PER_PT);
     const A4H = Math.round(297 * PX_PER_PT);
@@ -224,8 +235,8 @@
       }
     }
     const pdf = buildPDF(pages);
-    const ok = await saveBlob(new Blob([strToBytes(pdf)], { type: "application/pdf" }), "mindmap-" + stamp() + "-print.pdf", "application/pdf");
-    if (ok) M.App.toast("\u5df2\u5bfc\u51fa PDF\uff08" + pages.length + " \u9875\uff09");
+    const ok = await saveBlob(new Blob([strToBytes(pdf)], { type: "application/pdf" }), baseName() + "-print.pdf", "application/pdf");
+    if (ok) M.App.toast("\u5df2\u5bfc\u51fa PDF\uff08" + pages.length + " \u9875\uff09" + (scope ? "\uff08\u5206\u652f\uff09" : ""));
     } catch (err) {
       M.App.toast("\u5bfc\u51fa\u5931\u8d25\uff1a" + (err && err.message ? err.message : err), true);
     }

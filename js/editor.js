@@ -1040,6 +1040,11 @@
       if (e.shiftKey) M.Model.redo(); else M.Model.undo();
       return;
     }
+    if (ctrl && key.toLowerCase() === "s") {
+      e.preventDefault();
+      M.Storage.saveToFile();
+      return;
+    }
     if (ctrl && key.toLowerCase() === "y") {
       e.preventDefault();
       M.Model.redo();
