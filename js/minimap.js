@@ -5,6 +5,8 @@
 
   let canvas = null;
   let ctx = null;
+  let base = null;
+  let baseCtx = null;
   let state = null;
 
   function worldBounds() {
@@ -22,72 +24,91 @@
     return b;
   }
 
-  function drawNode(n, theme, scale) {
+  function drawNode(c, n, theme, scale) {
     const pw = Math.max(n.w * scale, 3);
     const ph = Math.max(n.h * scale, 3);
     const st = n.style || {};
-    ctx.fillStyle = st.bg || n.color || (n.depth === 0 ? theme.rootBg : theme.nodeBg);
-    ctx.strokeStyle = st.borderColor || (n.depth === 0 ? theme.rootBg : theme.nodeBorder);
-    ctx.lineWidth = 0.6;
-    ctx.beginPath();
-    ctx.rect(n.x - pw / 2, n.y - ph / 2, pw, ph);
-    ctx.fill();
-    ctx.stroke();
+    c.fillStyle = st.bg || n.color || (n.depth === 0 ? theme.rootBg : theme.nodeBg);
+    c.strokeStyle = st.borderColor || (n.depth === 0 ? theme.rootBg : theme.nodeBorder);
+    c.lineWidth = 0.6;
+    c.beginPath();
+    c.rect(n.x - pw / 2, n.y - ph / 2, pw, ph);
+    c.fill();
+    c.stroke();
   }
 
-  function minimap() {
+  function ensureBase() {
+    if (!base) {
+      base = document.createElement("canvas");
+      base.width = canvas.width;
+      base.height = canvas.height;
+      baseCtx = base.getContext("2d");
+    }
+    return baseCtx;
+  }
+
+  function renderBase() {
     if (!canvas || !ctx) return;
+    const c = ensureBase();
     const theme = M.Theme.get();
     const b = worldBounds();
     const bw = Math.max(b.maxX - b.minX, 1);
     const bh = Math.max(b.maxY - b.minY, 1);
-    const scale = Math.min(canvas.width / bw, canvas.height / bh);
-    const ox = (canvas.width - bw * scale) / 2 - b.minX * scale;
-    const oy = (canvas.height - bh * scale) / 2 - b.minY * scale;
+    const scale = Math.min(base.width / bw, base.height / bh);
+    const ox = (base.width - bw * scale) / 2 - b.minX * scale;
+    const oy = (base.height - bh * scale) / 2 - b.minY * scale;
     state = { b, bw, bh, scale, ox, oy };
 
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = theme.canvasBg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.translate(ox, oy);
-    ctx.scale(scale, scale);
+    c.save();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, base.width, base.height);
+    c.fillStyle = theme.canvasBg;
+    c.fillRect(0, 0, base.width, base.height);
+    c.translate(ox, oy);
+    c.scale(scale, scale);
 
-    ctx.strokeStyle = theme.line;
-    ctx.lineWidth = 1 / scale;
-    ctx.beginPath();
+    c.strokeStyle = theme.line;
+    c.lineWidth = 1 / scale;
+    c.beginPath();
     for (const n of M.Model.visibleNodes(M.Model.root)) {
       if (n === M.Model.root) continue;
       const parent = M.Model.findParent(M.Model.root, n.id);
       if (!parent) continue;
-      ctx.moveTo(parent.x, parent.y);
-      ctx.lineTo(n.x, n.y);
+      c.moveTo(parent.x, parent.y);
+      c.lineTo(n.x, n.y);
     }
-    ctx.stroke();
+    c.stroke();
 
-    for (const n of M.Model.visibleNodes(M.Model.root)) drawNode(n, theme, scale);
+    for (const n of M.Model.visibleNodes(M.Model.root)) drawNode(c, n, theme, scale);
 
     for (const f of M.Model.frames) {
       const geo = M.Render.frameGeometry(f, new Set(M.Model.visibleNodes(M.Model.root).map((n) => n.id)));
       if (!geo) continue;
-      ctx.strokeStyle = (f.style && f.style.borderColor) || theme.line;
-      ctx.lineWidth = 1 / scale;
-      ctx.strokeRect(geo.x, geo.y, geo.w, geo.h);
+      c.strokeStyle = (f.style && f.style.borderColor) || theme.line;
+      c.lineWidth = 1 / scale;
+      c.strokeRect(geo.x, geo.y, geo.w, geo.h);
     }
-    ctx.restore();
+    c.restore();
+  }
+
+  function minimap() {
+    if (!canvas || !ctx) return;
+    renderBase();
     drawViewport();
   }
 
   function drawViewport() {
     if (!ctx || !state) return;
+    if (!base) return;
     const el = M.Render.view.el;
-    const vw = el && el.clientWidth ? el.clientWidth : canvas.width * 2;
-    const vh = el && el.clientHeight ? el.clientHeight : canvas.height * 2;
+    const vw = el && el.clientWidth ? el.clientWidth : base.width * 2;
+    const vh = el && el.clientHeight ? el.clientHeight : base.height * 2;
     const tl = M.Render.screenToWorld(0, 0);
     const br = M.Render.screenToWorld(vw, vh);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(base, 0, 0);
     ctx.strokeStyle = themeAccent();
     ctx.lineWidth = 1.5;
     ctx.strokeRect(state.ox + tl.x * state.scale, state.oy + tl.y * state.scale,

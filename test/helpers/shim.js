@@ -144,7 +144,7 @@ function createSandbox() {
     font: "", measureText: measureTextStub,
     setTransform() {}, clearRect() {}, fillRect() {}, fill() {}, stroke() {},
     beginPath() {}, rect() {}, moveTo() {}, lineTo() {}, strokeRect() {},
-    translate() {}, scale() {}, save() {}, restore() {},
+    translate() {}, scale() {}, save() {}, restore() {}, drawImage() {},
     fillStyle: "", strokeStyle: "", lineWidth: 1
   };
   const singletonEl = makeElement("div", () => singletonEl);

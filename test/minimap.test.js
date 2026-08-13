@@ -52,3 +52,24 @@ test("click on minimap centers main view at that world point", () => {
   assert.ok(Math.abs(v.tx) < 1e6);
   assert.ok(Math.abs(v.ty) < 1e6);
 });
+
+test("viewport 每次刷新都整幅重放底图，不残留旧框线（无拖影）", () => {
+  const { mm, canvas } = fresh();
+  const c = canvas.getContext("2d");
+  let blits = 0;
+  const orig = c.drawImage;
+  c.drawImage = () => { blits++; };
+  try {
+    blits = 0;
+    mm.Render.render();
+    assert.equal(blits, 2, "render 自己 + setTransform 各整幅重放一次");
+    const before = blits;
+    mm.Minimap.drawViewport();
+    assert.equal(blits, before + 1, "平移/缩放后整幅重放，覆盖旧视野框");
+    const before2 = blits;
+    mm.Render.setTransform(-5, -9, 0.5);
+    assert.equal(blits, before2 + 1, "setTransform 刷新同样整幅重放");
+  } finally {
+    c.drawImage = orig;
+  }
+});
