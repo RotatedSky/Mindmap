@@ -332,7 +332,7 @@
       if (sb) for (const fid of sb) {
         if (minAt.get(fid) === i + 1) {
           upHas = true;
-          upO = Math.max(upO, framePadTop(fid) + frameLabelTop(fid) - b.fmTop.get(fid) - b.ownHalf);
+          upO = Math.max(upO, framePadTop(fid) + FRAME_LABEL_TOP - b.fmTop.get(fid) - b.ownHalf);
         }
       }
       if (downHas && upHas) {

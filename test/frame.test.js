@@ -147,7 +147,7 @@ function leavesFixture(mm) {
   return { root, x, m1, m2, y };
 }
 
-test("外框与相邻同级节点保持 FRAME_MARGIN 间距", () => {
+test("外框上缘恒预留标签空间，底部保持 FRAME_MARGIN 间距", () => {
   const { mm } = fresh();
   const { root, x, m1, m2, y } = leavesFixture(mm);
   mm.Model.addFrame([m1.id, m2.id]);
@@ -156,11 +156,11 @@ test("外框与相邻同级节点保持 FRAME_MARGIN 间距", () => {
   assert.ok(box);
   const distTop = box.y - (x.y + x.h / 2);
   const distBot = (y.y - y.h / 2) - (box.y + box.h);
-  assert.equal(distTop, mm.Layout.FRAME_MARGIN, "框顶与上方兄弟间距");
+  assert.equal(distTop, mm.Layout.FRAME_MARGIN + mm.Layout.FRAME_LABEL_TOP, "框顶与上方兄弟间距含标签预留");
   assert.equal(distBot, mm.Layout.FRAME_MARGIN, "框底与下方兄弟间距");
 });
 
-test("有标签的外框不改变外框与成员布局，仅上方兄弟让出标签空间", () => {
+test("加标签不引起布局变化（无标签时已恒预留标签空间）", () => {
   const { mm } = fresh();
   const { root, x, m1, m2, y } = leavesFixture(mm);
   mm.Model.addFrame([m1.id, m2.id]);
@@ -168,11 +168,12 @@ test("有标签的外框不改变外框与成员布局，仅上方兄弟让出�
   mm.Layout.treeLayout(root, "right", THEME);
   const plain = frameBox(mm, f);
   assert.ok(plain);
-  const plainTop = plain.y - (x.y + x.h / 2);
   const plainBotGap = (y.y - y.h / 2) - (plain.y + plain.h);
   const plainRelTop = plain.y - (m1.y - m1.h / 2);
-  assert.equal(plainTop, mm.Layout.FRAME_MARGIN);
+  assert.equal(plain.y - (x.y + x.h / 2), mm.Layout.FRAME_MARGIN + mm.Layout.FRAME_LABEL_TOP,
+    "无标签时已预留标签空间");
   assert.equal(plainBotGap, mm.Layout.FRAME_MARGIN);
+  assert.equal(plainRelTop, -mm.Layout.FRAME_PAD, "成员顶与外框顶相对位置 = FRAME_PAD");
 
   f.label = "第一组";
   mm.Layout.treeLayout(root, "right", THEME);
@@ -180,10 +181,8 @@ test("有标签的外框不改变外框与成员布局，仅上方兄弟让出�
   assert.ok(labeled);
   assert.equal(labeled.w, plain.w, "外框宽度不变");
   assert.equal(labeled.h, plain.h, "外框高度不变");
-  assert.equal((y.y - y.h / 2) - (labeled.y + labeled.h), plainBotGap,
-    "框底与下方兄弟净间距不变");
-  assert.equal(labeled.y - (m1.y - m1.h / 2), plainRelTop,
-    "成员顶与外框顶相对位置不变");
+  assert.equal(labeled.y, plain.y, "外框纵向位置不变");
+  assert.equal(labeled.x, plain.x, "外框横向位置不变");
   assert.equal(x.y + x.h / 2, m1.y - m1.h / 2 - mm.Layout.FRAME_MARGIN - mm.Layout.FRAME_PAD - mm.Layout.FRAME_LABEL_TOP,
     "上方兄弟让出标签高度空间");
 
@@ -219,7 +218,8 @@ test("外框与外框之间不重叠并保持 FRAME_SPACING 间距", () => {
   const box2 = frameBox(mm, mm.Model.frames[1]);
   assert.ok(box1 && box2);
   assert.ok(box1.y + box1.h <= box2.y, "两个外框不应重叠");
-  assert.equal(box2.y - (box1.y + box1.h), mm.Layout.FRAME_SPACING, "框间间距 == FRAME_SPACING");
+  assert.equal(box2.y - (box1.y + box1.h), mm.Layout.FRAME_SPACING + mm.Layout.FRAME_LABEL_TOP,
+    "框间间距 == FRAME_SPACING + 标签预留");
 });
 
 test("跨级外框互不重叠（成员在子树顶端与兄弟内）", () => {
@@ -232,7 +232,8 @@ test("跨级外框互不重叠（成员在子树顶端与兄弟内）", () => {
   const box2 = frameBox(mm, mm.Model.frames[1]);
   assert.ok(box1 && box2);
   assert.ok(box1.y + box1.h <= box2.y, "跨级外框不应重叠");
-  assert.equal(box2.y - (box1.y + box1.h), mm.Layout.FRAME_SPACING, "框间间距 == FRAME_SPACING");
+  assert.equal(box2.y - (box1.y + box1.h), mm.Layout.FRAME_SPACING + mm.Layout.FRAME_LABEL_TOP,
+    "框间间距 == FRAME_SPACING + 标签预留");
 });
 
 test("成员在组深处时外框间距不小于 FRAME_SPACING", () => {
