@@ -192,6 +192,49 @@ test("加标签不引起布局变化（无标签时已恒预留标签空间）",
   assert.ok(labelTop >= x.y + x.h / 2 + mm.Layout.FRAME_MARGIN - 1, "标签顶与上方兄弟有间距");
 });
 
+test("上侧子树内部框与下侧起始框：负向 pad 不抵消 FRAME_MARGIN", () => {
+  const { mm } = fresh();
+  const root = mm.Model.createNode("root");
+  const a = mm.Model.addChild(root, "A");
+  const a1 = mm.Model.addChild(a, "A1");
+  const a2 = mm.Model.addChild(a, "A2");
+  const b = mm.Model.addChild(root, "B");
+  mm.Model.replaceRoot(root);
+  mm.Model.addFrame([a1.id]);
+  mm.Model.addFrame([b.id]);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const vis = new Set(mm.Model.visibleNodes(root).map((n) => n.id));
+  const fA = frameBox(mm, mm.Model.frames[0]);
+  const fB = frameBox(mm, mm.Model.frames[1]);
+  assert.ok(fA && fB);
+  assert.equal(intersects(fB, rect(a2)), false, "B 框不应覆盖 A2 节点");
+  const aBottom = a.y + a.subH / 2;
+  assert.equal(fB.y - mm.Layout.FRAME_LABEL_TOP - aBottom, mm.Layout.FRAME_MARGIN,
+    "B 框标签顶与 A 子树底保持 FRAME_MARGIN");
+  assert.equal(fB.y - aBottom, mm.Layout.FRAME_MARGIN + mm.Layout.FRAME_LABEL_TOP,
+    "B 框顶边与 A 子树底含标签预留");
+});
+
+test("祖先成员框不额外撑开其子节点之间的间距", () => {
+  const { mm } = fresh();
+  const root = mm.Model.createNode("root");
+  const p = mm.Model.addChild(root, "P");
+  const c1 = mm.Model.addChild(p, "C1");
+  const d = mm.Model.addChild(c1, "D");
+  const c2 = mm.Model.addChild(p, "C2");
+  mm.Model.replaceRoot(root);
+  mm.Model.addFrame([p.id, d.id]);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const vis = new Set(mm.Model.visibleNodes(root).map((n) => n.id));
+  const f = mm.Model.frames[0];
+  const g = frameBox(mm, f);
+  assert.ok(g);
+  assert.equal(intersects(g, rect(c1)), true, "C1 应在外框内");
+  assert.equal(intersects(g, rect(c2)), true, "C2 应在外框内");
+  const gap = c2.y - c2.h / 2 - (c1.y + c1.subH / 2);
+  assert.equal(gap, mm.Layout.GAP_Y, "祖先成员框内兄弟节点保持普通 GAP_Y，不额外加 FRAME_MARGIN/FRAME_PAD");
+});
+
 test("非连续成员：中间兄弟被移出框范围并保持间距", () => {
   const { mm } = fresh();
   const root = mm.Model.createNode("root");

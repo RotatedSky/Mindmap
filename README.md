@@ -139,6 +139,8 @@ npm test
 
 ## 项目结构
 
+> 架构、模块依赖与数据流见 [`docs/architecture.md`](docs/architecture.md)（代码修改 / 重构前建议先读）。
+
 ```
 ├── index.html            应用入口
 ├── manifest.webmanifest  PWA 清单
