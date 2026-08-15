@@ -1149,15 +1149,17 @@
       div.addEventListener("click", (e) => { e.stopPropagation(); hideContextMenu(); fn(); });
       menu.appendChild(div);
     };
-    const sep = () => {
+    const title = (text) => {
       const d = document.createElement("div");
-      d.className = "ctx-sep";
+      d.className = "ctx-title";
+      d.textContent = text;
       menu.appendChild(d);
     };
 
     if (node) {
       ed.ctxNodeId = node.id;
       const isRoot = node === M.Model.root;
+      title("\u7f16\u8f91");
       add("\u270f\u2002\u7f16\u8f91\u6587\u5b57", () => beginEdit(node));
       add("\u2795\u2002\u6dfb\u52a0\u5b50\u8282\u70b9", () => {
         M.Model.change(() => { M.Model.addChild(node, "\u65b0\u8282\u70b9"); });
@@ -1182,9 +1184,9 @@
         M.Model.change(() => M.Model.removeNode(node));
         M.Render.render();
       });
-      sep();
+      title("\u5173\u8054");
       add("\ud83d\udd17\u2002\u5efa\u7acb\u5173\u8054\u2026", () => startConnect(node));
-      sep();
+      title("\u6837\u5f0f\u4e0e\u5185\u5bb9");
       add("\ud83c\udfa8\u2002\u7740\u8272", () => showColorMenu(node));
       const selCount = M.Model.selectedNodes().length;
       const frameOf = M.Model.frames.find((f) => f.nodes.includes(node.id));
@@ -1216,7 +1218,7 @@
       }
       add("\ud83d\udd17\u2002\u8bbe\u7f6e\u94fe\u63a5\u2026", () => promptLink(node));
       add("\ud83d\udcdd\u2002\u5907\u6ce8\u2026", () => editNotes(node));
-      sep();
+      title("\u526a\u8d34\u677f");
       add("\u2702\u2002\u590d\u5236", () => {
         M.Model.selectNode(node, false);
         M.Model.copySelection();
@@ -1234,12 +1236,13 @@
         M.App.toast("\u5df2\u7c98\u8d34");
       });
     } else {
+      title("\u526a\u8d34\u677f");
       add("\ud83d\udccb\u2002\u7c98\u8d34", () => {
         const target = M.Model.primaryNode() || M.Model.root;
         M.Model.change(() => M.Model.pasteInto(target));
         M.App.toast("\u5df2\u7c98\u8d34");
       });
-      sep();
+      title("\u89c6\u56fe");
       add("\u25b6\u2002\u5168\u90e8\u5c55\u5f00", () => {
         M.Model.change(() => {
           M.Model.allNodes(M.Model.root).forEach((n) => { n.collapsed = false; });

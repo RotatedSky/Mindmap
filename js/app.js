@@ -7,6 +7,7 @@
 
 
   const THEMES = [
+    { id: "system", name: "\u8ddf\u968f\u7cfb\u7edf", dot: "#9aa0a6" },
     { id: "blue", name: "\u7ecf\u5178\u84dd", dot: "#2e6fb0" },
     { id: "green", name: "\u6e05\u65b0\u7eff", dot: "#3a9d5c" },
     { id: "red", name: "\u4e2d\u56fd\u7ea2", dot: "#d64545" },
@@ -18,6 +19,15 @@
     { id: "mono", name: "\u7b80\u7ea6\u9ed1\u767d", dot: "#222222" },
     { id: "morandi", name: "\u83ab\u5170\u8fea", dot: "#8f7e6d" }
   ];
+
+  function systemDark() {
+    return !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+
+  function resolveTheme(themeId) {
+    if (themeId === "system") return systemDark() ? "night" : "blue";
+    return themeId;
+  }
 
   function $(id) {
     return document.getElementById(id);
@@ -80,13 +90,15 @@
       ["F2 / \u53cc\u51fb", "\u7f16\u8f91\u8282\u70b9\u6587\u5b57"],
       ["Tab", "\u6dfb\u52a0\u5b50\u8282\u70b9"],
       ["Enter", "\u6dfb\u52a0\u5144\u5f1f\u8282\u70b9"],
-      ["Delete", "\u5220\u9664\u8282\u70b9\uff08\u542b\u5b50\u6811\uff09"],
+      ["Delete / Backspace", "\u5220\u9664\u8282\u70b9\uff08\u542b\u5b50\u6811\uff09"],
       ["\u7a7a\u683c", "\u6536\u8d77 / \u5c55\u5f00\u5f53\u524d\u8282\u70b9"],
       ["[ / ]", "\u6536\u8d77 / \u5c55\u5f00\u5f53\u524d\u8282\u70b9"],
-      ["Ctrl+Z / Ctrl+Shift+Z", "\u64a4\u9500 / \u91cd\u505a"],
+      ["Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y", "\u64a4\u9500 / \u91cd\u505a"],
       ["Ctrl+C / X / V", "\u590d\u5236 / \u526a\u5207 / \u7c98\u8d34\u8282\u70b9\u5b50\u6811"],
       ["Ctrl+A", "\u5168\u9009\u53ef\u89c1\u8282\u70b9"],
       ["Ctrl+F", "\u641c\u7d22\u8282\u70b9"],
+      ["Ctrl+S", "\u4fdd\u5b58\u5230 .mind \u6587\u4ef6"],
+      ["?", "\u67e5\u770b\u5feb\u6377\u952e\u8bf4\u660e"],
       ["Shift/Ctrl+\u70b9\u51fb\u8282\u70b9", "\u52a0\u9009 / \u51cf\u9009\u8282\u70b9"],
       ["Shift/Ctrl+\u62d6\u52a8\u7a7a\u767d\u533a", "\u6846\u9009\u591a\u4e2a\u8282\u70b9"],
       ["\u62d6\u52a8\u8282\u70b9\u5230\u76ee\u6807", "\u8c03\u6574\u7236\u5b50\u5173\u7cfb\uff08\u6811\u5f62\u6a21\u5f0f\uff09"],
@@ -246,7 +258,7 @@
   }
 
   function applyTheme(themeId) {
-    document.documentElement.dataset.theme = themeId;
+    document.documentElement.dataset.theme = resolveTheme(themeId);
     M.Model.setSettings({ theme: themeId, bg: "" });
     applyBg();
     $("bg-color").value =
@@ -378,11 +390,18 @@
     M.Notes.refresh();
     M.Style.refresh();
     M.Storage.save();
+    updateEmptyHint();
+  }
+
+  function updateEmptyHint() {
+    const hint = $("empty-hint");
+    if (!hint || !M.Model.root) return;
+    hint.style.display = M.Model.root.children.length === 0 ? "" : "none";
   }
 
   function syncControls() {
     const s = M.Model.settings;
-    document.documentElement.dataset.theme = s.theme;
+    document.documentElement.dataset.theme = resolveTheme(s.theme);
     applyBg();
     $("theme-select").value = s.theme;
     $("line-style-select").value = s.lineStyle || "default";
@@ -401,6 +420,16 @@
     M.Layout.layoutAll();
     M.Render.render();
     M.Render.fit();
+    updateEmptyHint();
+    if (window.matchMedia) {
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        if (M.Model.settings.theme === "system") {
+          document.documentElement.dataset.theme = resolveTheme("system");
+          M.Layout.layoutAll();
+          M.Render.render();
+        }
+      });
+    }
     M.Math.fontsReady()
       .then(() => M.Math.precache())
       .then(() => {

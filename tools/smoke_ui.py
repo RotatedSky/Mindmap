@@ -66,6 +66,7 @@ def main():
 
         js = lambda expr, arg=None: page.evaluate(expr, arg)
         check(bool(js("!!window.MM && !!MM.Model.root")), "根节点就绪")
+        check(page.locator("#empty-hint").is_visible(), "空白思绪图显示空态引导")
         js("""
           const M = window.MM;
           const root = M.Model.root;
@@ -77,6 +78,8 @@ def main():
           M.Layout.layoutAll();
           M.Render.render();
         """)
+        page.wait_for_timeout(100)
+        check(not page.locator("#empty-hint").is_visible(), "添加子节点后空态引导隐藏")
 
         ids = js("(() => { const r = MM.Model.root; const k1 = r.children[0]; const k1a = k1.children[0]; return { k1: k1.id, k1a: k1a.id }; })()")
 
@@ -86,6 +89,7 @@ def main():
 
         page.locator(node_sel).click(button="right")
         check(menu.is_visible(), "右键节点弹出菜单")
+        check(menu.locator(".ctx-title").count() >= 4, "节点菜单含分组标题（≥4 组）")
         check(menu.locator(".ctx-item", has_text="添加外框").count() == 1, "单选节点菜单含「添加外框」")
         menu.locator(".ctx-item", has_text="添加外框").click()
         page.wait_for_timeout(100)
@@ -160,6 +164,30 @@ def main():
               "全部收起后视口变换矩阵有限")
 
         check(page.locator("#line-style-select option").count() == 6, "连线配色下拉含 6 个选项")
+        check(page.locator("#theme-select option").count() == 11, "主题下拉含「跟随系统」等 11 个选项")
+        page.locator("#theme-select").select_option("system")
+        page.wait_for_timeout(100)
+        dark = js("window.matchMedia('(prefers-color-scheme: dark)').matches")
+        check(js("MM.Model.settings.theme") == "system", "选择跟随系统写入 settings.theme")
+        check(js("document.documentElement.dataset.theme") == ("night" if dark else "blue"),
+              "跟随系统主题解析为 %s" % ("night" if dark else "blue"))
+        page.emulate_media(color_scheme="dark")
+        page.wait_for_timeout(150)
+        check(js("document.documentElement.dataset.theme") == "night", "系统深色时跟随系统解析为 night")
+        page.emulate_media(color_scheme="light")
+        page.wait_for_timeout(150)
+        check(js("document.documentElement.dataset.theme") == "blue", "系统浅色时跟随系统解析回 blue")
+        page.locator("#theme-select").select_option("blue")
+        page.wait_for_timeout(100)
+        check(js("document.documentElement.dataset.theme") == "blue", "切回经典蓝主题生效")
+        page.locator("#btn-help").click()
+        page.wait_for_timeout(100)
+        check(page.locator(".shortcuts tr").count() >= 20, "帮助弹窗快捷键表已补全（≥20 行）")
+        check(page.get_by_text("Ctrl+S", exact=True).count() == 1, "快捷键表含 Ctrl+S")
+        check(page.get_by_text("Ctrl+Y").count() == 1, "快捷键表含 Ctrl+Y")
+        check(page.get_by_text("Backspace").count() == 1, "快捷键表含 Backspace")
+        page.locator(".modal button.primary").click()
+        page.wait_for_timeout(100)
         page.locator("#btn-expand-all").click()
         page.wait_for_timeout(150)
         page.locator("#line-style-select").select_option("rainbow")
