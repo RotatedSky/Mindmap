@@ -380,6 +380,32 @@ test("旧数据成员同序异互含的框不爆栈且几何有限", () => {
   }
 });
 
+test("深链嵌套：最外层框左缘按几何收拢，不压到非成员根节点", () => {
+  const { mm } = fresh();
+  const root = mm.Model.createNode("root");
+  let cur = root;
+  const chain = [root];
+  for (let i = 0; i < 6; i++) {
+    cur = mm.Model.addChild(cur, "L" + i);
+    chain.push(cur);
+    mm.Model.addChild(cur, "s" + i);
+  }
+  mm.Model.replaceRoot(root);
+  for (let i = 1; i < chain.length; i++) mm.Model.addFrame([chain[i].id]);
+  mm.Layout.treeLayout(root, "right", THEME);
+  const vis = new Set(mm.Model.visibleNodes(root).map((n) => n.id));
+  const outer = mm.Model.frames[0];
+  const g = mm.Render.frameGeometry(outer, vis);
+  assert.ok(g);
+  assert.equal(intersects(g, rect(root)), false, "最外层框不应压到根节点");
+  assert.equal(g.x, chain[1].x - chain[1].w / 2 - mm.Layout.FRAME_PAD, "左缘 = 首成员左缘 - FRAME_PAD（不随嵌套深度叠加）");
+  for (const f of mm.Model.frames) {
+    const gf = mm.Render.frameGeometry(f, vis);
+    assert.ok(gf && gf.w > 0 && gf.h > 0, "各层框几何有限");
+    assert.ok(gf.x + gf.w <= g.x + g.w && gf.y >= g.y && gf.y + gf.h <= g.y + g.h, "嵌套框含于最外层框");
+  }
+});
+
 test("兄弟嵌套分支 pad 独立计入（pill 不穿出外层框）", () => {
   const { mm } = fresh();
   const { root } = treeFixture(mm);

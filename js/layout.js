@@ -484,7 +484,7 @@
 
   M.Layout = {
     GAP_X, GAP_Y, FRAME_PAD, FRAME_MARGIN, FRAME_SPACING, FRAME_LABEL_TOP, IMG_W, IMG_H, IMG_GAP, PAD_X, PAD_Y, MAX_W,
-    frameLabelTop, framePadTop, framePadBot, framePadLeft, framePadRight,
+    frameLabelTop, framePadTop, framePadBot, framePadLeft, framePadRight, nestedFrames,
     layoutAll, treeLayout, freeLayout,
     initFreePositions, bounds, nodeSize,
     truncate, wrapText, wrapParts, splitParts, measureText, fontMetrics

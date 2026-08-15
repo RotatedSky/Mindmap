@@ -467,11 +467,17 @@
       any = true;
     }
     if (!any || !isFinite(minX)) return null;
-    const padLeft = M.Layout.framePadLeft(f.id);
-    const padRight = M.Layout.framePadRight(f.id);
     const padTop = M.Layout.framePadTop(f.id);
     const padBot = M.Layout.framePadBot(f.id);
-    return { x: minX - padLeft, y: minY - padTop, w: maxX - minX + padLeft + padRight, h: maxY - minY + padTop + padBot };
+    let left = minX - M.Layout.FRAME_PAD;
+    let right = maxX + M.Layout.FRAME_PAD;
+    for (const f2 of M.Layout.nestedFrames(f)) {
+      const g2 = frameGeometry(f2, visibleIds);
+      if (!g2) continue;
+      if (g2.x - M.Layout.FRAME_PAD < left) left = g2.x - M.Layout.FRAME_PAD;
+      if (g2.x + g2.w + M.Layout.FRAME_PAD > right) right = g2.x + g2.w + M.Layout.FRAME_PAD;
+    }
+    return { x: left, y: minY - padTop, w: right - left, h: maxY - minY + padTop + padBot };
   }
 
   function drawFrame(f, g, theme, visibleIds, plain) {
