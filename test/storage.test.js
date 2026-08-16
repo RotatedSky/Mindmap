@@ -170,15 +170,124 @@ test("saveToFile 回写已打开文件", async () => {
   assert.ok(written.includes("改写内容"));
 });
 
-test("saveToFile 无句柄时回退 exportJSON（另存为/下载）", async () => {
+test("saveToFile 无句柄时打开保存格式选择", async () => {
   const env = fresh();
+  const { mm } = env;
+  let opened = false;
+  env.mm.App.showSaveDialog = () => { opened = true; };
+  const ok = await mm.Storage.saveToFile();
+  assert.equal(ok, undefined);
+  assert.equal(opened, true, "无文件句柄应打开保存格式选择");
+});
+
+test("saveAs 用 showSaveFilePicker 写 JSON 并保留句柄供后续回写", async () => {
+  const env = fresh();
+  const { mm, sandbox } = env;
+  let written = "";
+  let picked = null;
+  sandbox.window.showSaveFilePicker = async (opts) => {
+    picked = opts;
+    return {
+      name: "导出.mind",
+      createWritable: async () => ({
+        write: async (s) => { written = String(s); },
+        close: async () => {}
+      })
+    };
+  };
+  mm.Model.reset();
+  const ok = await mm.Storage.saveAs("mind");
+  assert.equal(ok, true);
+  assert.ok(picked.suggestedName.endsWith(".mind"), "保存选择器建议名用 .mind 扩展");
+  assert.ok(written.includes(mm.Model.root.text), "写入 JSON 内容");
+  mm.Model.change(() => { mm.Model.root.text = "回写内容"; });
+  const ok2 = await mm.Storage.saveToFile();
+  assert.equal(ok2, true);
+  assert.ok(written.includes("回写内容"), "后续 Ctrl+S 直接回写所选文件");
+});
+
+test("saveAs json 建议名用 .json 扩展", async () => {
+  const env = fresh();
+  const { mm, sandbox } = env;
+  let picked = null;
+  sandbox.window.showSaveFilePicker = async (opts) => {
+    picked = opts;
+    return {
+      name: "导出.json",
+      createWritable: async () => ({
+        write: async () => {},
+        close: async () => {}
+      })
+    };
+  };
+  mm.Model.reset();
+  const ok = await mm.Storage.saveAs("json");
+  assert.equal(ok, true);
+  assert.ok(picked.suggestedName.endsWith(".json"), "保存选择器建议名用 .json 扩展");
+});
+
+test("saveAs md 写出 Markdown 大纲", async () => {
+  const env = setup(["model", "markdown", "storage"]);
+  const { mm, sandbox } = env;
+  mm.App = { toast() {} };
+  let written = "";
+  sandbox.window.showSaveFilePicker = async () => ({
+    name: "大纲.md",
+    createWritable: async () => ({
+      write: async (s) => { written = String(s); },
+      close: async () => {}
+    })
+  });
+  mm.Model.reset();
+  const ok = await mm.Storage.saveAs("md");
+  assert.equal(ok, true);
+  assert.ok(written.startsWith("- "), "Markdown 大纲以列表开头");
+});
+
+test("saveAs 无 File System Access 时回退下载", async () => {
+  const env = fresh();
+  const { mm } = env;
   let called = false;
   env.mm.Exporter = {
     saveBlob: async () => { called = true; return true; }
   };
-  const ok = await env.mm.Storage.saveToFile();
+  mm.Model.reset();
+  const ok = await mm.Storage.saveAs("json");
   assert.equal(ok, true);
-  assert.equal(called, true, "无文件句柄应回退到 exportJSON 另存为");
+  assert.equal(called, true, "无保存选择器应回退到 saveBlob 下载");
+});
+
+test("saveAs 用户取消返回 false", async () => {
+  const env = fresh();
+  const { mm, sandbox } = env;
+  sandbox.window.showSaveFilePicker = () => Promise.reject({ name: "AbortError" });
+  const ok = await mm.Storage.saveAs("json");
+  assert.equal(ok, false);
+});
+
+test("clearFile 清除句柄后 saveToFile 走保存格式选择", async () => {
+  const env = fresh();
+  const { mm, sandbox } = env;
+  let picked = null;
+  sandbox.window.showSaveFilePicker = async (opts) => {
+    picked = opts;
+    return {
+      name: "out.mind",
+      createWritable: async () => ({
+        write: async () => {},
+        close: async () => {}
+      })
+    };
+  };
+  mm.Model.reset();
+  const ok = await mm.Storage.saveAs("json");
+  assert.equal(ok, true, "saveAs 保留句柄");
+  let opened = false;
+  env.mm.App.showSaveDialog = () => { opened = true; };
+  mm.Storage.clearFile();
+  const ok2 = await mm.Storage.saveToFile();
+  assert.equal(ok2, undefined);
+  assert.equal(opened, true, "clearFile 后 saveToFile 弹出保存格式选择");
 });
 
 test("init 无数据返回 false", async () => {

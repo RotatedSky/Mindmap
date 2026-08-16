@@ -29,7 +29,7 @@ python -m http.server 8080
 - `Ctrl+C / X / V` 复制、剪切、粘贴整棵子树
 - 撤销 / 重做（`Ctrl+Z` / `Ctrl+Shift+Z`，最多 100 步）
 - 节点展开 / 收起：点击 `−/+` 按钮，空格或 `[` `]` 快捷键，工具栏一键展开/收起全部
-- 本地文件：`Ctrl+S` 保存到 `.mind` 文件；「导入」可打开本地 `.mind` / `.json` 文件并回写保存
+- 本地文件：`Ctrl+S` 保存修改——打开过 `.mind` / `.json` 文件直接回写原文件；其他情况（Markdown 导入、新建）弹出保存类型选择（`.mind` / `.json` / Markdown 大纲）；「导入」可打开本地 `.mind` / `.json` 文件并回写保存
 
 ### 布局方向
 - 工具栏可切换布局方向：右向（默认，全部节点在右侧）、左向（镜像）、左右均衡（根节点子节点两侧交替排布）
@@ -96,7 +96,7 @@ python -m http.server 8080
 
 ### 数据持久化
 - 自动保存到浏览器 IndexedDB（突破旧版 5MB 上限），旧 localStorage 数据首次打开自动迁移
-- 工具栏「保存」：保存到本地 `.mind` 文件；通过「导入 → 打开 .mind/.json 文件」打开的本地文件可回写保存（Chrome / Edge，File System Access），其他浏览器回退为 JSON 导出 / 导入
+- 工具栏「保存」/ `Ctrl+S`：打开过 `.mind` / `.json` 文件（File System Access）直接回写原文件；未打开时选择保存类型（`.mind` / `.json` / Markdown 大纲），无保存选择器的浏览器回退为下载
 - 工具栏"导入 / 导出"JSON 文件备份
 
 ### PWA
@@ -113,7 +113,7 @@ python -m http.server 8080
 | 空格 | 收起 / 展开 |
 | `[` / `]` | 收起 / 展开 |
 | Ctrl+Z / Ctrl+Shift+Z | 撤销 / 重做 |
-| Ctrl+S | 保存到 .mind 文件（另存为或回写已打开文件） |
+| Ctrl+S | 保存（回写打开的 .mind/.json，或选择保存类型） |
 | Ctrl+C / X / V | 复制 / 剪切 / 粘贴子树 |
 | Ctrl+A | 全选 |
 | Ctrl+F | 搜索 |

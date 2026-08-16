@@ -97,7 +97,7 @@
       ["Ctrl+C / X / V", "\u590d\u5236 / \u526a\u5207 / \u7c98\u8d34\u8282\u70b9\u5b50\u6811"],
       ["Ctrl+A", "\u5168\u9009\u53ef\u89c1\u8282\u70b9"],
       ["Ctrl+F", "\u641c\u7d22\u8282\u70b9"],
-      ["Ctrl+S", "\u4fdd\u5b58\u5230 .mind \u6587\u4ef6"],
+      ["Ctrl+S", "\u4fdd\u5b58\uff08.mind / .json \u56de\u5199\u539f\u6587\u4ef6\uff0c\u5176\u4ed6\u683c\u5f0f\u9009\u62e9\u4fdd\u5b58\u7c7b\u578b\uff09"],
       ["?", "\u67e5\u770b\u5feb\u6377\u952e\u8bf4\u660e"],
       ["Shift/Ctrl+\u70b9\u51fb\u8282\u70b9", "\u52a0\u9009 / \u51cf\u9009\u8282\u70b9"],
       ["Shift/Ctrl+\u62d6\u52a8\u7a7a\u767d\u533a", "\u6846\u9009\u591a\u4e2a\u8282\u70b9"],
@@ -134,6 +134,7 @@
         } else {
           M.Model.change(() => M.Model.applyTemplate(tplId));
         }
+        M.Storage.clearFile();
         syncControls();
         M.Layout.layoutAll();
         M.Render.render();
@@ -177,12 +178,28 @@
     });
     dlg.el.querySelector("#imp-json").addEventListener("click", () => {
       dlg.close();
-      $("file-input").click();
+      const r = M.Storage.openFile();
+      if (r === null) $("file-input").click();
     });
     dlg.el.querySelector("#imp-md").addEventListener("click", () => {
       dlg.close();
       showMarkdownDialog();
     });
+  }
+
+  function showSaveDialog() {
+    const dlg = modal({
+      title: "\u4fdd\u5b58\u601d\u7eea\u56fe",
+      body: "<div class='m-hint'>\u5f53\u524d\u5185\u5bb9\u65e0\u53ef\u56de\u5199\u7684 .mind / .json \u6587\u4ef6\uff0c\u8bf7\u9009\u62e9\u4fdd\u5b58\u683c\u5f0f\uff1a</div>" +
+        "<div class='m-row'><button class='m-option' id='sv-mind'>\u601d\u7eea\u56fe\u6587\u4ef6\uff08.mind\uff09</button></div>" +
+        "<div class='m-row'><button class='m-option' id='sv-json'>JSON \u5907\u4efd\uff08.json\uff09</button></div>" +
+        "<div class='m-row'><button class='m-option' id='sv-md'>Markdown \u5927\u7eb2\uff08.md\uff09</button></div>",
+      ok: "\u5173\u95ed"
+    });
+    const pick = (fmt) => { dlg.close(); M.Storage.saveAs(fmt); };
+    dlg.el.querySelector("#sv-mind").addEventListener("click", () => pick("mind"));
+    dlg.el.querySelector("#sv-json").addEventListener("click", () => pick("json"));
+    dlg.el.querySelector("#sv-md").addEventListener("click", () => pick("md"));
   }
 
   function showExportDialog() {
@@ -243,6 +260,7 @@
         if (!text.trim()) return false;
         const parsed = M.Markdown.parse(text);
         M.Model.change(() => M.Model.replaceRoot(parsed));
+        M.Storage.clearFile();
         M.Render.fit();
         M.App.toast("\u5dfc\u5165\u6210\u529f\uff0cCtrl+Z \u53ef\u64a4\u9500");
         return true;
@@ -469,5 +487,5 @@
     init();
   }
 
-  M.App = { init, toast, modal, showHelp, showWelcome, showNewDialog, setNotesOpen };
+  M.App = { init, toast, modal, showHelp, showWelcome, showNewDialog, setNotesOpen, showSaveDialog };
 })();

@@ -113,25 +113,33 @@
       .then((ok) => { if (ok) M.App.toast("\u5df2\u5bfc\u51fa JSON"); return ok; });
   }
 
-  function importJSON(file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const obj = JSON.parse(reader.result);
-        if (!obj || !obj.root) throw new Error("bad");
-        M.Model.deserialize(obj);
-        M.App.toast("\u5bfc\u5165\u6210\u529f");
-      } catch (err) {
-        M.App.toast("\u6587\u4ef6\u683c\u5f0f\u4e0d\u6b63\u786e", true);
-      }
-    };
-    reader.readAsText(file);
-  }
-
   const FILE_TYPES = [{ description: "\u601d\u7eea\u56fe\u6587\u4ef6", accept: { "application/json": [".mind", ".json"] } }];
 
   let fileHandle = null;
   let fileName = null;
+  let saveFormat = "json";
+
+  function buildContent(format) {
+    if (format === "md") return M.Markdown.serialize(M.Model.root);
+    return JSON.stringify(M.Model.serialize());
+  }
+
+  function writeHandle(handle, content, name, format) {
+    return handle.createWritable()
+      .then((w) => w.write(content).then(() => w.close()))
+      .then(() => {
+        fileHandle = handle;
+        fileName = name;
+        saveFormat = format;
+        M.App.toast("\u5df2\u4fdd\u5b58 " + name);
+        return true;
+      })
+      .catch(() => {
+        fileHandle = null;
+        M.App.toast("\u4fdd\u5b58\u5931\u8d25\uff0c\u8bf7\u91cd\u65b0\u9009\u62e9\u4fdd\u5b58\u683c\u5f0f", true);
+        return M.App.showSaveDialog();
+      });
+  }
 
   function parseAndLoad(text) {
     const obj = JSON.parse(text);
@@ -148,6 +156,7 @@
             try {
               parseAndLoad(text);
               fileName = h.name;
+              saveFormat = /\.md$/i.test(h.name) ? "md" : "json";
               M.App.toast("\u5df2\u6253\u5f00 " + h.name);
               return true;
             } catch (err) {
@@ -166,19 +175,58 @@
   }
 
   function saveToFile() {
-    const json = JSON.stringify(M.Model.serialize());
     if (fileHandle) {
-      return fileHandle.createWritable()
-        .then((w) => w.write(json).then(() => w.close()))
-        .then(() => { M.App.toast("\u5df2\u4fdd\u5b58 " + fileName); return true; })
-        .catch(() => {
-          fileHandle = null;
-          M.App.toast("\u4fdd\u5b58\u5931\u8d25\uff0c\u5df2\u8f6c\u4e3a\u53e6\u5b58\u4e3a", true);
-          return exportJSON();
-        });
+      return writeHandle(fileHandle, buildContent(saveFormat), fileName, saveFormat);
     }
-    return exportJSON();
+    return M.App.showSaveDialog();
   }
 
-  M.Storage = { save, flush, load, init, openFile, saveToFile, exportJSON, importJSON, KEY };
+  function saveAs(format) {
+    const content = buildContent(format);
+    const ext = format === "md" ? "md" : format;
+    const type = format === "md" ? "text/markdown" : "application/json";
+    const title = String(M.Model.root.text || "").trim()
+      .replace(/[\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+    const name = (title || "mindmap") + "." + ext;
+    if (window.showSaveFilePicker) {
+      return window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: format === "md" ? "Markdown" : "\u601d\u7eea\u56fe\u6587\u4ef6", accept: { [type]: ["." + ext] } }]
+      })
+        .then((h) => writeHandle(h, content, h.name, format))
+        .catch((err) => {
+          if (err && err.name === "AbortError") return false;
+          M.App.toast("\u4fdd\u5b58\u5931\u8d25\uff1a\u65e0\u6cd5\u5199\u5165\u6240\u9009\u6587\u4ef6", true);
+          return false;
+        });
+    }
+    const blob = new Blob([content], { type });
+    return M.Exporter.saveBlob(blob, name, type)
+      .then((ok) => { if (ok) M.App.toast("\u5df2\u4fdd\u5b58 " + name); return ok; });
+  }
+
+  function importJSON(file) {
+    fileHandle = null;
+    fileName = null;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const obj = JSON.parse(reader.result);
+        if (!obj || !obj.root) throw new Error("bad");
+        M.Model.deserialize(obj);
+        M.App.toast("\u5bfc\u5165\u6210\u529f");
+      } catch (err) {
+        M.App.toast("\u6587\u4ef6\u683c\u5f0f\u4e0d\u6b63\u786e", true);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function clearFile() {
+    fileHandle = null;
+    fileName = null;
+    saveFormat = "json";
+  }
+
+  M.Storage = { save, flush, load, init, openFile, saveToFile, saveAs, exportJSON, importJSON, clearFile, KEY };
 })();
