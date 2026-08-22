@@ -51,7 +51,8 @@ js/math.js         ← 依赖 KaTeX；不依赖 M.Model，只需要 window.MM �
 js/layout.js       ← 依赖 M.Math、M.Model
 js/render.js       ← 依赖 M.Model、M.Layout、M.Math；同时导出 M.Theme
 js/minimap.js      ← 依赖 M.Render、M.Model
-js/editor.js       ← 依赖 M.Model、M.Render、M.Layout、M.Theme、M.App(运行时)
+js/image.js        ← 图片读取/压缩；不依赖 M.Model
+js/editor.js       ← 依赖 M.Model、M.Render、M.Layout、M.Theme、M.Image、M.App(运行时)
 js/search.js       ← 依赖 M.Model、M.Render(运行时)
 js/outline.js      ← 依赖 M.Model、M.Render(运行时)
 js/notes.js        ← 依赖 M.Model、M.App(运行时)
@@ -75,10 +76,12 @@ graph TD
   render --> math
   minimap[minimap.js 小地图] --> model
   minimap --> render
+  image[image.js 图片处理]
   editor[editor.js 交互] --> model
   editor --> render
   editor --> layout
   editor --> math
+  editor --> image
   search[search.js 搜索] --> model
   outline[outline.js 大纲] --> model
   notes[notes.js 备注] --> model
@@ -117,6 +120,7 @@ graph TD
 | `js/layout.js` | 树形/自由布局、换行、文本测量、外框避让 | `M.Layout` | 几何/测量计算（用 canvas 2D 测文本），不直接生成 SVG；输出 `x/y/w/h/subH/…` |
 | `js/render.js` | SVG 画布渲染、主题、坐标变换、外框几何 | `M.Render`、`M.Theme` | 唯一画布渲染入口；导出也复用它 |
 | `js/minimap.js` | 小地图缩略图与视野框 | `M.Minimap` | 监听渲染/变换后重绘 |
+| `js/image.js` | 图片文件读取、压缩、拖拽/粘贴提取 | `M.Image` | 统一处理本地图片进入节点前的校验与降质 |
 | `js/editor.js` | 指针/键盘/拖拽/右键菜单/编辑框 | `M.Editor` | 交互层，最复杂；只通过 `M.Model.change` 改数据 |
 | `js/search.js` | 搜索定位 | `M.Search` | 匹配可见节点 |
 | `js/outline.js` | 大纲面板 | `M.Outline` | 与树双向联动 |
@@ -344,6 +348,7 @@ tools/
 | 修改节点/外框/连线样式 | `js/render.js`（buildNode/drawFrame/drawRelation） | 导出 SVG/PNG/PDF | `test/render.test.js`、`test/export.test.js` |
 | 增加导出格式/选项 | `js/exporter.js` + `js/render.js` 的 `toSVGString` | 保存对话框、文件命名 | `test/export.test.js` |
 | 增加快捷键/右键菜单 | `js/editor.js` | 移动端、搜索、样式面板 | `test/editor?`（暂无则补）+ 冒烟 |
+| 调整图片添加/压缩 | `js/image.js` + `js/editor.js` | 节点图片字段、存储体积、拖拽/粘贴 | `test/image.test.js` + 冒烟 |
 | 改持久化/自动保存 | `js/storage.js` | 旧 localStorage 数据迁移 | `test/storage.test.js` |
 | 改公式排版 | `js/math.js` + `js/layout.js` 测量 + `js/render.js` 绘制 | 节点尺寸、导出 | `test/math.test.js`、`test/layout.test.js` |
 | 改 Markdown 导入导出 | `js/markdown.js` | 模板、备注/图片/链接 | `test/markdown.test.js` |

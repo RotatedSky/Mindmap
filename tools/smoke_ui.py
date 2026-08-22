@@ -66,6 +66,7 @@ def main():
 
         js = lambda expr, arg=None: page.evaluate(expr, arg)
         check(bool(js("!!window.MM && !!MM.Model.root")), "根节点就绪")
+        check(js("!!window.MM.Image && typeof MM.Image.readImageFile === 'function'"), "图片处理模块已挂载")
         check(page.locator("#empty-hint").is_visible(), "空白思绪图显示空态引导")
         js("""
           const M = window.MM;
@@ -187,7 +188,7 @@ def main():
         check(page.get_by_text("Ctrl+Y").count() == 1, "快捷键表含 Ctrl+Y")
         check(page.get_by_text("Backspace").count() == 1, "快捷键表含 Backspace")
         page.locator(".modal button.primary").click()
-        page.wait_for_timeout(100)
+        page.wait_for_selector(".modal", state="detached")
         page.locator("#btn-expand-all").click()
         page.wait_for_timeout(150)
         page.locator("#line-style-select").select_option("rainbow")
@@ -238,6 +239,7 @@ def main():
         page.wait_for_timeout(100)
         check(page.locator("#style-panel").is_visible(), "点击节点重新打开样式面板")
 
+        page.wait_for_timeout(600)
         page.goto("http://127.0.0.1:%d/test/fixtures/testbed-frame.html" % PORT)
         page.wait_for_function("document.title.indexOf('{') === 0")
         out = json.loads(page.title())

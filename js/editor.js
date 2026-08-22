@@ -59,7 +59,11 @@
     svg.addEventListener("contextmenu", onContextMenu);
     document.addEventListener("pointerdown", onDocPointerDown, true);
     document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("paste", onImagePaste);
     window.addEventListener("resize", () => M.Render.fit());
+    ed.wrap.addEventListener("dragover", onImageDragOver);
+    ed.wrap.addEventListener("dragleave", onImageDragLeave);
+    ed.wrap.addEventListener("drop", onImageDrop);
 
     ed.editInput = document.getElementById("edit-overlay");
     ed.editInput.addEventListener("keydown", onEditKeyDown);
@@ -1064,10 +1068,6 @@
       return;
     }
     if (ctrl && key.toLowerCase() === "v") {
-      e.preventDefault();
-      const target = M.Model.primaryNode() || M.Model.root;
-      M.Model.change(() => M.Model.pasteInto(target));
-      M.App.toast("\u5df2\u7c98\u8d34");
       return;
     }
     if (ctrl && key.toLowerCase() === "a") {
@@ -1329,23 +1329,86 @@
     }
   }
 
+  function applyImageToNode(node, file) {
+    if (!M.Image) return;
+    M.Image.readImageFile(file).then((res) => {
+      if (!M.Model.find(M.Model.root, node.id)) return;
+      M.Model.change(() => { node.image = res.dataUrl; });
+      M.Render.render();
+      M.App.toast(res.compressed ? "\u56fe\u7247\u8fc7\u5927\uff0c\u5df2\u81ea\u52a8\u538b\u7f29" : "\u56fe\u7247\u5df2\u6dfb\u52a0");
+    }).catch((err) => {
+      if (err && err.message === "too-large") M.App.toast("\u56fe\u7247\u8d85\u8fc7 50MB\uff0c\u65e0\u6cd5\u6dfb\u52a0", true);
+      else M.App.toast("\u56fe\u7247\u8bfb\u53d6\u5931\u8d25", true);
+    });
+  }
+
+  function nodeAtClient(e) {
+    const rect = ed.svg.getBoundingClientRect();
+    const w = M.Render.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+    return hitNodeAt(w.x, w.y, null);
+  }
+
+  function clearImageDropTargets() {
+    for (const el of M.Render.view.nodeEls.values()) el.classList.remove("drop-target");
+  }
+
+  function onImageDragOver(e) {
+    const types = Array.from((e.dataTransfer && e.dataTransfer.types) || []);
+    if (types.indexOf("Files") === -1) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    const node = nodeAtClient(e);
+    for (const [id, el] of M.Render.view.nodeEls) {
+      el.classList.toggle("drop-target", id === (node && node.id));
+    }
+  }
+
+  function onImageDragLeave(e) {
+    if (e.relatedTarget && ed.wrap.contains && ed.wrap.contains(e.relatedTarget)) return;
+    clearImageDropTargets();
+  }
+
+  function onImageDrop(e) {
+    const types = Array.from((e.dataTransfer && e.dataTransfer.types) || []);
+    if (types.indexOf("Files") === -1) return;
+    e.preventDefault();
+    clearImageDropTargets();
+    const file = M.Image && M.Image.imageFileFromDataTransfer(e.dataTransfer);
+    if (!file) return;
+    const node = nodeAtClient(e);
+    if (!node) {
+      M.App.toast("\u8bf7\u5c06\u56fe\u7247\u62d6\u5230\u8282\u70b9\u4e0a", true);
+      return;
+    }
+    applyImageToNode(node, file);
+  }
+
+  function onImagePaste(e) {
+    if (isTypingTarget(e.target) || ed.isEditing || isOverlayOpen()) return;
+    const dt = e.clipboardData;
+    if (!dt) return;
+    const file = M.Image && M.Image.imageFileFromDataTransfer(dt);
+    if (file) {
+      e.preventDefault();
+      const node = M.Model.primaryNode() || M.Model.root;
+      if (node) applyImageToNode(node, file);
+      return;
+    }
+    const target = M.Model.primaryNode() || M.Model.root;
+    const ok = M.Model.change(() => M.Model.pasteInto(target));
+    if (ok) {
+      e.preventDefault();
+      M.App.toast("\u5df2\u7c98\u8d34");
+    }
+  }
+
   function pickImage(node) {
     const input = document.getElementById("image-input");
     input.value = "";
     input.onchange = () => {
       const file = input.files && input.files[0];
       if (!file) return;
-      if (file.size > 2 * 1024 * 1024) {
-        M.App.toast("\u56fe\u7247\u8d85\u8fc7 2MB\uff0c\u5efa\u8bae\u538b\u7f29\u540e\u518d\u6dfb\u52a0", true);
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        M.Model.change(() => { node.image = reader.result; });
-        M.Render.render();
-        M.App.toast("\u56fe\u7247\u5df2\u6dfb\u52a0");
-      };
-      reader.readAsDataURL(file);
+      applyImageToNode(node, file);
     };
     input.click();
   }
