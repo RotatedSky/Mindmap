@@ -1,4 +1,4 @@
-const CACHE = "mindmap-v6";
+const CACHE = "mindmap-v7";
 
 const ASSETS = [
   "./",
@@ -8,6 +8,7 @@ const ASSETS = [
   "./vendor/katex/katex.min.js",
   "./vendor/katex/katex.min.css",
   "./js/model.js",
+  "./js/i18n.js",
   "./js/math.js",
   "./js/layout.js",
   "./js/render.js",

@@ -45,7 +45,7 @@
       lastId = node.id;
       ta.value = node.notes || "";
     }
-    titleEl.textContent = node.text || "\uff08\u7a7a\uff09";
+    titleEl.textContent = node.text || M.I18n.tr("\uff08\u7a7a\uff09");
   }
 
   function save() {

@@ -161,7 +161,7 @@
     }
     hint.style.display = "none";
     controls.style.display = "block";
-    title.textContent = frame ? "\u5916\u6846\u6837\u5f0f" : "\u8282\u70b9\u6837\u5f0f";
+    title.textContent = frame ? M.I18n.tr("\u5916\u6846\u6837\u5f0f") : M.I18n.tr("\u8282\u70b9\u6837\u5f0f");
     for (const row of controls.querySelectorAll(".st-row")) {
       const mode = row.getAttribute("data-mode");
       row.style.display = mode && mode !== (frame ? "frame" : "node") ? "none" : "";

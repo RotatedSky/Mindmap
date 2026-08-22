@@ -37,7 +37,7 @@
     const box = $("toasts");
     const el = document.createElement("div");
     el.className = "toast" + (warn ? " warn" : "");
-    el.textContent = msg;
+    el.textContent = M.I18n ? M.I18n.tr(msg) : msg;
     box.appendChild(el);
     requestAnimationFrame(() => el.classList.add("show"));
     setTimeout(() => {
@@ -66,6 +66,7 @@
     m.appendChild(actions);
     mask.appendChild(m);
     document.body.appendChild(mask);
+    if (M.I18n) M.I18n.apply(m);
 
     function close() {
       mask.remove();
@@ -129,7 +130,7 @@
         const tplId = card.getAttribute("data-tpl");
         dlg.close();
         if (!tplId) {
-          const root = M.Model.createNode("\u6839\u8282\u70b9");
+          const root = M.Model.createNode(M.I18n ? M.I18n.tr("\u6839\u8282\u70b9") : "\u6839\u8282\u70b9");
           M.Model.change(() => M.Model.replaceRoot(root));
         } else {
           M.Model.change(() => M.Model.applyTemplate(tplId));
@@ -311,6 +312,14 @@
       e.target.value = "";
     });
 
+    const langSel = $("lang-select");
+    if (langSel) {
+      langSel.value = M.I18n ? M.I18n.getLang() : "zh";
+      langSel.addEventListener("change", () => {
+        if (M.I18n) M.I18n.setLang(langSel.value);
+      });
+    }
+
     const themeSel = $("theme-select");
     for (const t of THEMES) {
       const opt = document.createElement("option");
@@ -469,6 +478,7 @@
   }
 
   function init() {
+    if (M.I18n) M.I18n.init();
     M.Render.init($("canvas"));
     M.Search.init();
     M.Outline.init();
@@ -477,6 +487,7 @@
     M.Editor.init($("canvas-wrap"), $("canvas"));
     M.Minimap.init($("minimap"));
     wireToolbar();
+    if (M.I18n) M.I18n.applyStatic();
 
     M.Storage.init().then(start);
   }

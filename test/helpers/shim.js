@@ -244,7 +244,11 @@ function loadModule(sandbox, name) {
 
 function setup(mods) {
   const env = createSandbox();
-  for (const name of mods || ["model"]) {
+  const names = ["i18n"].concat(mods || ["model"]);
+  const seen = new Set();
+  for (const name of names) {
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
     loadModule(env.sandbox, name);
   }
   return Object.assign(env, { mm: env.sandbox.window.MM });

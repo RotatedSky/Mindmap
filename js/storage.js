@@ -149,7 +149,7 @@
 
   function openFile() {
     if (window.showOpenFilePicker) {
-      return window.showOpenFilePicker({ types: FILE_TYPES, multiple: false })
+      return window.showOpenFilePicker({ types: [{ description: M.I18n.tr(FILE_TYPES[0].description), accept: FILE_TYPES[0].accept }], multiple: false })
         .then(([h]) => {
           fileHandle = h;
           return h.getFile().then((f) => f.text()).then((text) => {
@@ -191,7 +191,7 @@
     if (window.showSaveFilePicker) {
       return window.showSaveFilePicker({
         suggestedName: name,
-        types: [{ description: format === "md" ? "Markdown" : "\u601d\u7eea\u56fe\u6587\u4ef6", accept: { [type]: ["." + ext] } }]
+        types: [{ description: format === "md" ? "Markdown" : M.I18n.tr("\u601d\u7eea\u56fe\u6587\u4ef6"), accept: { [type]: ["." + ext] } }]
       })
         .then((h) => writeHandle(h, content, h.name, format))
         .catch((err) => {

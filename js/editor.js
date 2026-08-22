@@ -752,6 +752,7 @@
       });
     });
     const rect = ed.svg.getBoundingClientRect();
+    if (M.I18n) M.I18n.apply(menu);
     menu.style.display = "block";
     const mw = menu.offsetWidth, mh = menu.offsetHeight;
     const vw = ed.wrap.clientWidth, vh = ed.wrap.clientHeight;
@@ -791,6 +792,7 @@
       });
     });
     const rect = ed.svg.getBoundingClientRect();
+    if (M.I18n) M.I18n.apply(menu);
     menu.style.display = "block";
     const mw = menu.offsetWidth, mh = menu.offsetHeight;
     const vw = ed.wrap.clientWidth, vh = ed.wrap.clientHeight;
@@ -959,7 +961,7 @@
     if (!node) return;
     if (!text) {
       M.Model.change(() => {
-        if (node === M.Model.root) node.text = "\u672a\u547d\u540d";
+        if (node === M.Model.root) node.text = M.I18n.tr("\u672a\u547d\u540d");
         else M.Model.removeNode(node);
       });
     } else if (node.text !== text) {
@@ -1115,14 +1117,14 @@
 
     if (key === "Tab") {
       e.preventDefault();
-      M.Model.change(() => { M.Model.addChild(primary, "\u65b0\u8282\u70b9"); });
+      M.Model.change(() => { M.Model.addChild(primary, M.I18n.tr("\u65b0\u8282\u70b9")); });
       const added = primary.children[primary.children.length - 1];
       M.Model.selectNode(added, false);
       beginEdit(added);
     } else if (key === "Enter") {
       e.preventDefault();
       let nb = null;
-      M.Model.change(() => { nb = M.Model.addSibling(primary, "\u65b0\u8282\u70b9"); });
+      M.Model.change(() => { nb = M.Model.addSibling(primary, M.I18n.tr("\u65b0\u8282\u70b9")); });
       M.Model.selectNode(nb, false);
       beginEdit(nb);
     } else if (key === "F2") {
@@ -1162,7 +1164,7 @@
       title("\u7f16\u8f91");
       add("\u270f\u2002\u7f16\u8f91\u6587\u5b57", () => beginEdit(node));
       add("\u2795\u2002\u6dfb\u52a0\u5b50\u8282\u70b9", () => {
-        M.Model.change(() => { M.Model.addChild(node, "\u65b0\u8282\u70b9"); });
+        M.Model.change(() => { M.Model.addChild(node, M.I18n.tr("\u65b0\u8282\u70b9")); });
         const added = node.children[node.children.length - 1];
         M.Model.selectNode(added, false);
         M.Render.render();
@@ -1170,7 +1172,7 @@
       });
       add("\u21a9\u2002\u6dfb\u52a0\u5144\u5f1f\u8282\u70b9", () => {
         let nb = null;
-        M.Model.change(() => { nb = M.Model.addSibling(node, "\u65b0\u8282\u70b9"); });
+        M.Model.change(() => { nb = M.Model.addSibling(node, M.I18n.tr("\u65b0\u8282\u70b9")); });
         M.Model.selectNode(nb, false);
         M.Render.render();
         beginEdit(nb);
@@ -1261,6 +1263,7 @@
     }
 
     const rect = ed.svg.getBoundingClientRect();
+    if (M.I18n) M.I18n.apply(menu);
     menu.style.display = "block";
     const mw = menu.offsetWidth, mh = menu.offsetHeight;
     const vw = ed.wrap.clientWidth, vh = ed.wrap.clientHeight;
@@ -1305,6 +1308,7 @@
     row.appendChild(none);
     COLORS.forEach(swatch);
     menu.appendChild(row);
+    if (M.I18n) M.I18n.apply(menu);
     menu.style.display = "block";
     menu.style.left = "6px";
     menu.style.top = "6px";

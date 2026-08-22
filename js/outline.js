@@ -40,7 +40,7 @@
     toggle.className = "outline-toggle";
     if (hasKids) {
       toggle.textContent = node.collapsed ? "\u25b6" : "\u25bc";
-      toggle.title = node.collapsed ? "\u5c55\u5f00" : "\u6536\u8d77";
+      toggle.title = node.collapsed ? M.I18n.tr("\u5c55\u5f00") : M.I18n.tr("\u6536\u8d77");
       toggle.addEventListener("click", (e) => {
         e.stopPropagation();
         M.Model.change(() => { node.collapsed = !node.collapsed; });
@@ -55,7 +55,7 @@
 
     const text = document.createElement("span");
     text.className = "outline-text";
-    text.textContent = node.text || "\uff08\u7a7a\uff09";
+    text.textContent = node.text || M.I18n.tr("\uff08\u7a7a\uff09");
     text.title = node.notes || node.text;
     li.appendChild(text);
 
@@ -74,10 +74,10 @@
     const addBtn = document.createElement("span");
     addBtn.className = "outline-li";
     addBtn.textContent = "+";
-    addBtn.title = "\u6dfb\u52a0\u5b50\u8282\u70b9";
+    addBtn.title = M.I18n.tr("\u6dfb\u52a0\u5b50\u8282\u70b9");
     addBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      M.Model.change(() => { M.Model.addChild(node, "\u65b0\u8282\u70b9"); });
+      M.Model.change(() => { M.Model.addChild(node, M.I18n.tr("\u65b0\u8282\u70b9")); });
       refresh();
     });
     li.appendChild(addBtn);
@@ -85,7 +85,7 @@
     const delBtn = document.createElement("span");
     delBtn.className = "outline-li";
     delBtn.textContent = "\u2715";
-    delBtn.title = "\u5220\u9664";
+    delBtn.title = M.I18n.tr("\u5220\u9664");
     delBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       M.Model.change(() => M.Model.removeNode(node));
