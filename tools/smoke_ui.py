@@ -238,7 +238,7 @@ def main():
         page.wait_for_timeout(100)
         check(page.locator("#style-panel").is_visible(), "点击节点重新打开样式面板")
 
-        page.goto("http://127.0.0.1:%d/testbed-frame.html" % PORT)
+        page.goto("http://127.0.0.1:%d/test/fixtures/testbed-frame.html" % PORT)
         page.wait_for_function("document.title.indexOf('{') === 0")
         out = json.loads(page.title())
         na = out["nodes"]["Node A"]

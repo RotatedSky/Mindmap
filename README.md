@@ -168,6 +168,7 @@ npm test
 │   └── app.js            工具栏 / 对话框 / 初始化
 ├── test/                 Node 测试（node --test）
 │   ├── helpers/shim.js   浏览器环境沙箱
+│   ├── fixtures/testbed-frame.html  外框几何浏览器冒烟夹具
 │   └── *.test.js         各模块测试
 └── tools/
     ├── bench.js          性能基准（layout / render / SVG 导出，节点数 200–5000）
