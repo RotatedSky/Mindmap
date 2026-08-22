@@ -10,7 +10,9 @@
 ## 关键约定
 
 - 模块：每个 `js/*.js` 为 IIFE，导出到 `window.MM`（如 `M.Model`、`M.Layout`）
-- 测试：`test/*.test.js` 通过 `test/helpers/shim.js` 的 `setup()` 在 VM 沙箱中加载模块；每个用例必须 `fresh()` 独立沙箱
+- 界面文案：统一通过 `M.I18n.tr()` / `M.I18n.apply()` 翻译；新增/修改界面文案需同步维护 `js/i18n.js` 的英文词典；用户内容与模板内容不翻译
+- 测试：`test/*.test.js` 通过 `test/helpers/shim.js` 的 `setup()` 在 VM 沙箱中加载模块；`setup()` 默认先加载 `i18n`；每个用例必须 `fresh()` 独立沙箱
+- 测试夹具：`test/fixtures/testbed-frame.html` 供浏览器冒烟做外框几何验证，由 `tools/smoke_ui.py` 引用
 - 跨 realm 断言：vm 沙箱内的对象不能用 `assert.deepEqual/strict` 比较，用 `sameJSON()`（shim 导出）或逐字段断言
 - 文本测量桩：ASCII 8px/字符，CJK（码点 > U+2FFF）16px/字符；测试期望值按此推算
 - 撤销/重做会替换根对象引用，断言前重新读取 `mm.Model.root`

@@ -51,7 +51,7 @@
 3. 几何 / 布局算法变更（外框、连线、测量相关）必跑随机回归：`node test/fuzz-frames.js`（两 seed × 5000 runs × 6 方向）。fuzz 失败会自动留存现场到 `test/failures/`（已 gitignore），用 `node test/repro.js <现场.json> [布局方向]` 一键复现并打印全部几何 / pad / pill 检查值，无需手工构造复现用例。
 4. 浏览器冒烟：
    - 触发条件（满足任一即必须冒烟）：DOM 重交互（拖拽、菜单、输入框）、Canvas/SVG/foreignObject 渲染、导出下载、外部库（如 KaTeX）在真实浏览器中的行为
-   - 优先用自动化冒烟：`python tools/smoke_ui.py`（Playwright，覆盖右键菜单交互与外框几何断言；首次使用需 `pip install playwright` + `playwright install chromium`），或 `--headed` 观察真实交互
+   - 优先用自动化冒烟：`python tools/smoke_ui.py`（Playwright，覆盖右键菜单交互、外框几何断言与界面中英文切换；首次使用需 `pip install playwright` + `playwright install chromium`），或 `--headed` 观察真实交互
    - 自动化覆盖不到的再手动冒烟；冒烟结论写入该次任务的结果说明，注明浏览器与验证的功能点；冒烟暴露的问题转入阶段 4 闭环
 
 ## 阶段 4：问题修改（闭环）
@@ -97,5 +97,6 @@
 - [ ] 重构/技术替换类任务保持行为等价（既有测试全通过，行为差异已向用户说明）
 - [ ] 无遗留 TODO/FIXME 或已向用户说明
 - [ ] 功能/交互变更同步更新 `README.md` 功能说明与工具欢迎页面（`js/app.js` 的 `showWelcome()` 提示文案），两者与行为一致
+- [ ] 界面文字变更同步维护 `js/i18n.js` 中英文词典，并保持 README / 欢迎页与行为一致
 - [ ] 改动经用户 review 确认后再提交（默认不自动提交）
 - [ ] 提交信息按 `docs/commit-message-template.md` 模板填写（含 TEST 行，如需提交）
