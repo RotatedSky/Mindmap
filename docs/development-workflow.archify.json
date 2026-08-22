@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "开发工作流",
+    "quality_profile": "showcase",
+    "viewBox": [720, 400]
+  },
+  "lanes": [
+    { "id": "main", "label": "开发主线" },
+    { "id": "quality", "label": "测试与问题闭环" }
+  ],
+  "phases": [
+    { "id": "phase-plan", "label": "方案设计", "fromCol": 0, "toCol": 0 },
+    { "id": "phase-dev", "label": "开发", "fromCol": 1, "toCol": 1 },
+    { "id": "phase-test", "label": "测试", "fromCol": 2, "toCol": 2 },
+    { "id": "phase-fix", "label": "问题修改与回归", "fromCol": 3, "toCol": 4, "variant": "emphasis" },
+    { "id": "phase-done", "label": "完成", "fromCol": 5, "toCol": 5 }
+  ],
+  "groups": [
+    { "id": "group-fix", "label": "测试失败闭环", "lane": "quality", "fromCol": 3, "toCol": 4, "variant": "security" }
+  ],
+  "mainPath": ["design", "develop", "test", "fix", "regression", "done"],
+  "nodes": [
+    { "id": "design", "lane": "main", "col": 0, "type": "backend", "label": "方案设计", "sublabel": "需求 / 影响面 / 方案" },
+    { "id": "develop", "lane": "quality", "col": 1, "type": "backend", "label": "开发", "sublabel": "按 todo 实现，确认后提交", "width": 110 },
+    { "id": "test", "lane": "main", "col": 2, "type": "database", "label": "测试", "sublabel": "全量测试 / 冒烟 / fuzz" },
+    { "id": "fix", "lane": "quality", "col": 3, "type": "security", "label": "问题修改", "sublabel": "A/B/C 分类闭环" },
+    { "id": "regression", "lane": "main", "col": 4, "type": "database", "label": "回归测试", "sublabel": "全量测试 + 受影响用例" },
+    { "id": "done", "lane": "quality", "col": 5, "type": "external", "label": "完成", "sublabel": "DoD 全绿" }
+  ],
+  "edges": [
+    { "from": "design", "to": "develop", "label": "设计说明 + todo", "role": "main", "labelAt": [154, 159] },
+    { "from": "develop", "to": "test", "label": "进入测试", "role": "main" },
+    { "from": "test", "to": "fix", "label": "失败", "variant": "security", "role": "error" },
+    { "from": "fix", "to": "regression", "label": "修复后回归", "role": "main" },
+    { "from": "regression", "to": "done", "label": "通过", "role": "main", "labelSegment": 1 },
+    { "from": "regression", "to": "fix", "label": "仍失败", "variant": "security", "role": "error", "labelDx": -24 }
+  ],
+  "cards": []
+}
