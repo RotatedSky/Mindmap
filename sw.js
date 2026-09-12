@@ -1,4 +1,4 @@
-const CACHE = "mindmap-v9";
+const CACHE = "mindmap-v10";
 
 const ASSETS = [
   "./",

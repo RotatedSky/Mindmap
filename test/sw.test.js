@@ -41,3 +41,16 @@ test("index.html 与 manifest 引用的本地资源都已预缓存", () => {
   const notCached = refs.filter((r) => !ASSETS.includes(r));
   assert.deepEqual(notCached, []);
 });
+
+test("index.html 含 iOS 主屏安装元信息（图标 / 全屏 / 名称）", () => {
+  const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  assert.match(html, /rel="apple-touch-icon"[^>]*href="icon-192\.png"/);
+  assert.match(html, /name="apple-mobile-web-app-capable"[^>]*content="yes"/);
+  assert.match(html, /name="apple-mobile-web-app-title"[^>]*content="[^"]+"/);
+});
+
+test("manifest 声明稳定的安装身份与方向", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "manifest.webmanifest"), "utf8"));
+  assert.equal(manifest.id, "./");
+  assert.ok(["any", "portrait", "landscape"].includes(manifest.orientation));
+});
