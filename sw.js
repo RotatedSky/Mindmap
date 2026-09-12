@@ -1,4 +1,4 @@
-const CACHE = "mindmap-v8";
+const CACHE = "mindmap-v9";
 
 const ASSETS = [
   "./",
@@ -12,11 +12,13 @@ const ASSETS = [
   "./js/math.js",
   "./js/layout.js",
   "./js/render.js",
+  "./js/minimap.js",
   "./js/image.js",
   "./js/editor.js",
   "./js/search.js",
   "./js/outline.js",
   "./js/notes.js",
+  "./js/style.js",
   "./js/markdown.js",
   "./js/exporter.js",
   "./js/storage.js",
