@@ -35,6 +35,194 @@ def check(cond, msg):
     print("ok:", msg)
 
 
+def smoke_mobile(p, browser, device):
+    ctx = browser.new_context(**p.devices[device])
+    page = ctx.new_page()
+    page.goto("http://127.0.0.1:%d/index.html" % PORT)
+    page.wait_for_timeout(400)
+    if page.locator(".modal").count():
+        page.locator(".tpl-card.tpl-blank").click()
+        page.wait_for_timeout(200)
+    js = lambda expr, arg=None: page.evaluate(expr, arg)
+
+    js("""() => {
+      const M = window.MM;
+      const r = M.Model.root;
+      M.Model.change(() => {
+        const k1 = M.Model.addChild(r, "K1");
+        M.Model.addChild(r, "K2");
+        M.Model.addChild(k1, "K1a");
+      });
+      M.Layout.layoutAll();
+      M.Render.fit();
+    }""")
+    page.wait_for_timeout(200)
+
+    vw = js("innerWidth")
+    vh = js("innerHeight")
+    check(vw <= 430, "%s：手机视口宽度 %d（360–430px 目标范围）" % (device, vw))
+    check(js("window.matchMedia('(hover: none)').matches") is True, "触屏设备 hover: none 生效")
+    check(js("window.matchMedia('(hover: hover)').matches") is False, "触屏设备 hover: hover 不生效")
+
+    def center(node_id):
+        return js("""(id) => {
+          const M = window.MM;
+          const n = M.Model.find(M.Model.root, id);
+          const s = M.Render.worldToScreen(n.x, n.y);
+          const r = document.getElementById("canvas").getBoundingClientRect();
+          return { x: Math.round(s.x + r.x), y: Math.round(s.y + r.y) };
+        }""", node_id)
+
+    kid = js("() => MM.Model.root.children[0].id")
+    pt = center(kid)
+
+    page.evaluate("""(args) => {
+      const el = document.querySelector('g.node[data-id="' + args.id + '"]');
+      const o = { bubbles: true, cancelable: true, clientX: args.x, clientY: args.y,
+        pointerId: 31, pointerType: "touch", isPrimary: true, button: 0, buttons: 1 };
+      el.dispatchEvent(new PointerEvent("pointerdown", o));
+      window.__lp = { el: el, o: o };
+    }""", {"id": kid, "x": pt["x"], "y": pt["y"]})
+    page.wait_for_timeout(750)
+
+    menu = page.locator("#ctx-menu")
+    check(menu.is_visible(), "长按节点弹出菜单")
+    mstate = js("""() => {
+      const m = document.getElementById("ctx-menu");
+      const b = m.getBoundingClientRect();
+      const item = m.querySelector(".ctx-item");
+      return {
+        pos: getComputedStyle(m).position,
+        overflowY: getComputedStyle(m).overflowY,
+        top: Math.round(b.top), bottom: Math.round(b.bottom),
+        itemH: item ? Math.round(item.getBoundingClientRect().height) : 0,
+        items: m.querySelectorAll(".ctx-item").length,
+        scrollable: m.scrollHeight > m.clientHeight + 1
+      };
+    }""")
+    check(mstate["pos"] == "fixed", "移动端菜单为固定定位底部抽屉")
+    check(mstate["top"] >= 0 and mstate["bottom"] <= vh, "菜单完整落在视口内（top=%d bottom=%d vh=%d）"
+          % (mstate["top"], mstate["bottom"], vh))
+    check(mstate["itemH"] >= 44, "菜单项高度 %d ≥ 44" % mstate["itemH"])
+    check(mstate["overflowY"] == "auto", "菜单可滚动（overflow-y=auto）")
+    check(mstate["items"] >= 14, "节点菜单项数 %d（分组完整）" % mstate["items"])
+
+    last_visible = js("""() => {
+      const m = document.getElementById("ctx-menu");
+      m.scrollTop = m.scrollHeight;
+      const items = m.querySelectorAll(".ctx-item");
+      const b = items[items.length - 1].getBoundingClientRect();
+      return b.bottom <= innerHeight + 1 && b.top >= -1;
+    }""")
+    check(last_visible, "滚动到底后最后一项可见（无不可达项）")
+
+    page.evaluate("""() => {
+      const o = Object.assign({}, window.__lp.o, { buttons: 0 });
+      document.getElementById("ctx-menu").dispatchEvent(new PointerEvent("pointerup", o));
+    }""")
+    page.wait_for_timeout(150)
+
+    before = js("() => MM.Model.root.children[0].children.length")
+    menu.locator(".ctx-item", has_text="添加子节点").click()
+    page.wait_for_timeout(150)
+    check(not menu.is_visible(), "点击菜单项后菜单收起")
+    check(js("() => MM.Model.root.children[0].children.length") == before + 1, "抽屉菜单项可正常触达执行")
+
+    js("() => { MM.Style.setOpen(false); MM.Model.clearSelection(); MM.Render.render(); }")
+    page.wait_for_timeout(100)
+    pt = center(kid)
+    page.touchscreen.tap(pt["x"], pt["y"])
+    page.wait_for_timeout(200)
+    check(js("() => MM.Model.selectedNodes().length") == 1, "长按后手指在抽屉上抬起，再次单击仍可选中（指针状态不残留）")
+    check(js("() => MM.Style.isOpen()") is False, "触屏单击不自动弹出样式面板")
+
+    page.touchscreen.tap(pt["x"], pt["y"])
+    page.wait_for_timeout(250)
+    check(js("() => MM.Editor.isEditing") is True, "触屏双击进入编辑")
+    er = js("""() => {
+      const b = document.getElementById("edit-overlay").getBoundingClientRect();
+      return { top: Math.round(b.top), bottom: Math.round(b.bottom), visible: b.width > 0 };
+    }""")
+    check(er["visible"] and er["top"] >= 0 and er["bottom"] <= vh, "编辑框落在可视区域内")
+    js("() => document.querySelector('#edit-overlay textarea').blur()")
+    page.wait_for_timeout(150)
+    check(js("() => MM.Editor.isEditing") is False, "失焦提交退出编辑")
+
+    js("() => { MM.Model.clearSelection(); MM.Render.render(); }")
+    page.wait_for_timeout(100)
+    edge = js("""(id) => {
+      const M = window.MM;
+      const n = M.Model.find(M.Model.root, id);
+      const s = M.Render.worldToScreen(n.x - n.w / 2, n.y);
+      const r = document.getElementById("canvas").getBoundingClientRect();
+      return { x: Math.round(s.x + r.x) - 8, y: Math.round(s.y + r.y) };
+    }""", kid)
+    page.touchscreen.tap(edge["x"], edge["y"])
+    page.wait_for_timeout(200)
+    check(js("(id) => MM.Model.selectedNodes().some(n => n.id === id)", kid) is True,
+          "点击节点外 8px 仍选中该节点（命中容差）")
+
+    empty = js("""() => {
+      const M = window.MM;
+      const r = document.getElementById("canvas").getBoundingClientRect();
+      const cand = [
+        { x: r.left + 24, y: r.bottom - 30 },
+        { x: r.right - 24, y: r.top + 30 },
+        { x: r.left + 24, y: r.top + 30 }
+      ];
+      for (const p of cand) {
+        let min = Infinity;
+        for (const n of M.Model.visibleNodes(M.Model.root)) {
+          const s = M.Render.worldToScreen(n.x, n.y);
+          const dx = Math.max(Math.abs(p.x - r.left - s.x) - n.w / 2 * M.Render.view.s, 0);
+          const dy = Math.max(Math.abs(p.y - r.top - s.y) - n.h / 2 * M.Render.view.s, 0);
+          min = Math.min(min, Math.hypot(dx, dy));
+        }
+        if (min > 40) return { x: Math.round(p.x), y: Math.round(p.y), gap: Math.round(min) };
+      }
+      return null;
+    }""")
+    check(empty is not None, "存在距任意节点 >40px 的空白点")
+    js("() => { MM.Model.clearSelection(); MM.Render.render(); }")
+    page.wait_for_timeout(100)
+    page.touchscreen.tap(empty["x"], empty["y"])
+    page.wait_for_timeout(200)
+    check(js("() => MM.Model.selectedNodes().length") == 0,
+          "点击远处空白不误选节点（空白点距最近节点 %dpx）" % empty["gap"])
+
+    fold = js("""(id) => {
+      const b = document.querySelector('g.node[data-id="' + id + '"] g.fold-btn').getBoundingClientRect();
+      return { x: Math.round(b.right) + 6, y: Math.round(b.top + b.height / 2) };
+    }""", kid)
+    page.touchscreen.tap(fold["x"], fold["y"])
+    page.wait_for_timeout(200)
+    check(js("(id) => MM.Model.find(MM.Model.root, id).collapsed", kid) is True,
+          "点击折叠按钮外 6px 仍折叠该节点（按钮命中容差）")
+    page.touchscreen.tap(fold["x"], fold["y"])
+    page.wait_for_timeout(200)
+    check(js("(id) => MM.Model.find(MM.Model.root, id).collapsed", kid) is False, "再次点击恢复展开")
+
+    page.locator("#btn-outline").click()
+    page.wait_for_timeout(200)
+    close_box = js("""() => {
+      const b = document.querySelector("#outline-panel .panel-close").getBoundingClientRect();
+      return { w: Math.round(b.width), h: Math.round(b.height) };
+    }""")
+    check(close_box["w"] >= 44 and close_box["h"] >= 44,
+          "面板关闭按钮 %dx%d ≥ 44（触控目标）" % (close_box["w"], close_box["h"]))
+    check(js("""() => getComputedStyle(document.querySelector(".outline-li")).opacity""") == "1",
+          "触屏下大纲行操作图标常显（不依赖 hover）")
+    zoom_w = js("""() => document.getElementById("btn-zoom-in").getBoundingClientRect().width""")
+    check(round(zoom_w) >= 44, "缩放按钮宽度 %d ≥ 44" % round(zoom_w))
+    check(js("""() => getComputedStyle(document.getElementById("minimap")).touchAction""") == "none",
+          "小地图 touch-action: none（触屏拖拽不被浏览器手势抢走）")
+    page.locator("#outline-panel .panel-close").click()
+    page.wait_for_timeout(150)
+    check(not page.locator("#outline-panel").is_visible(), "触屏下大纲面板可关闭")
+
+    ctx.close()
+
+
 def main():
     headed = "--headed" in sys.argv
     threading.Thread(target=serve, daemon=True).start()
@@ -351,6 +539,8 @@ def main():
         check(js("typeof window.MM.Minimap === 'object' && typeof MM.Minimap.minimap === 'function'"), "MM.Minimap 模块已挂载")
         check(js("MM.Minimap.minimap()") is None or True, "小地图可刷新不报错")
         page.screenshot(path=str(ROOT / "tools" / "smoke-shot.png"))
+        for device in ("iPhone SE", "iPhone 12"):
+            smoke_mobile(p, browser, device)
         browser.close()
 
     print("SMOKE OK")

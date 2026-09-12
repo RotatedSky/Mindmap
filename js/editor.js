@@ -4,6 +4,7 @@
   const M = (window.MM = window.MM || {});
 
   const COLORS = ["#e74c3c", "#e67e22", "#f1c40f", "#2ecc71", "#1abc9c", "#3498db", "#2980b9", "#9b59b6", "#8e44ad", "#f39c12", "#95a5a6", "#16a085"];
+  const TAP_SLOP_PX = 10;
 
   const ed = {
     wrap: null,
@@ -46,6 +47,12 @@
       (M.Search && M.Search.isOpen());
   }
 
+  function autoOpenStyle() {
+    const mq = window.matchMedia;
+    if (typeof mq === "function" && !mq("(hover: hover)").matches) return;
+    M.Style.setOpen(true);
+  }
+
   function init(wrap, svg) {
     ed.wrap = wrap;
     ed.svg = svg;
@@ -58,6 +65,9 @@
     svg.addEventListener("click", onSvgClick);
     svg.addEventListener("contextmenu", onContextMenu);
     document.addEventListener("pointerdown", onDocPointerDown, true);
+    window.addEventListener("pointerup", onLostPointer);
+    window.addEventListener("pointercancel", onLostPointer);
+    window.addEventListener("blur", clearPointers);
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("paste", onImagePaste);
     window.addEventListener("resize", () => M.Render.fit());
@@ -95,6 +105,55 @@
     const el = e.target && e.target.closest ? e.target.closest(".frame-hit, .frame-label") : null;
     if (!el) return null;
     return M.Model.frames.find((f) => f.id === el.getAttribute("data-id")) || null;
+  }
+
+  function nearestRectIndex(rects, x, y, slop) {
+    let best = -1, bestD = 0;
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      const dx = Math.max(r.left - x, 0, x - r.right);
+      const dy = Math.max(r.top - y, 0, y - r.bottom);
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > slop) continue;
+      if (best < 0 || d < bestD) { best = i; bestD = d; }
+    }
+    return best;
+  }
+
+  function nearestEl(sel, x, y, slop) {
+    if (!ed.svg || !ed.svg.querySelectorAll) return null;
+    const els = ed.svg.querySelectorAll(sel);
+    if (!els || !els.length) return null;
+    const rects = [];
+    for (let i = 0; i < els.length; i++) rects.push(els[i].getBoundingClientRect());
+    const idx = nearestRectIndex(rects, x, y, slop);
+    return idx < 0 ? null : els[idx];
+  }
+
+  function nodeFromEl(el) {
+    if (!el) return null;
+    const g = el.closest ? (el.closest("g.node") || el) : el;
+    return M.Model.find(M.Model.root, g.getAttribute("data-id"));
+  }
+
+  function hitSlopPx(e) {
+    const t = e.target;
+    const hit = t && t.closest
+      ? t.closest(".node, .rel-hit, .rel-label, .rel-handle, .frame-hit, .frame-label")
+      : null;
+    return hit ? 0 : TAP_SLOP_PX;
+  }
+
+  function nodeNearClient(e) {
+    const hit = targetNode(e);
+    if (hit) return hit;
+    if (!hitSlopPx(e)) return null;
+    return nodeFromEl(nearestEl("g.node .nrect", e.clientX, e.clientY, TAP_SLOP_PX));
+  }
+
+  function nearBtn(e, sel) {
+    if (!hitSlopPx(e)) return null;
+    return nodeFromEl(nearestEl(sel, e.clientX, e.clientY, TAP_SLOP_PX));
   }
 
   function selectFrame(id) {
@@ -203,7 +262,7 @@
       return;
     }
 
-    const foldNode = targetBtn(e, "fold-btn");
+    const foldNode = targetBtn(e, "fold-btn") || nearBtn(e, "g.fold-btn");
     if (foldNode) {
       M.Model.change(() => {
         foldNode.collapsed = !foldNode.collapsed;
@@ -212,12 +271,12 @@
       M.Search && M.Search.refresh();
       return;
     }
-    const linkNode = targetBtn(e, "link-btn");
+    const linkNode = targetBtn(e, "link-btn") || nearBtn(e, "g.link-btn");
     if (linkNode && linkNode.link) {
       window.open(linkNode.link, "_blank", "noopener");
       return;
     }
-    const noteNode = targetBtn(e, "note-dot");
+    const noteNode = targetBtn(e, "note-dot") || nearBtn(e, "circle.note-dot");
     if (noteNode && noteNode.notes) {
       if (ed.connectFrom) endConnect();
       ed.selectedFrameId = null;
@@ -282,7 +341,7 @@
       ed.mode = "frame";
       return;
     }
-    const node = targetNode(e);
+    const node = nodeNearClient(e);
     if (node) {
       ed.selectedFrameId = null;
       if (ed.connectFrom) {
@@ -312,6 +371,22 @@
       ed.panStart = { x: e.clientX, y: e.clientY, tx: M.Render.view.tx, ty: M.Render.view.ty };
       ed.svg.classList.add("panning");
     }
+  }
+
+  function onLostPointer(e) {
+    if (!ed.pointers.has(e.pointerId)) return;
+    if (ed.svg && ed.svg.contains(e.target)) return;
+    ed.pointers.delete(e.pointerId);
+    ed.mode = null;
+    ed.moved = false;
+    clearTimeout(ed.longPressTimer);
+  }
+
+  function clearPointers() {
+    ed.pointers.clear();
+    ed.mode = null;
+    ed.moved = false;
+    clearTimeout(ed.longPressTimer);
   }
 
   function scheduleLongPress(e, node) {
@@ -573,7 +648,7 @@
         for (const id of (ed.marqueeHits || [])) ids.add(id);
         ed.selectedFrameId = null;
         M.Model.setSelection(ids);
-        M.Style.setOpen(true);
+        autoOpenStyle();
       }
       if (ed.marqueeEl) { ed.marqueeEl.remove(); ed.marqueeEl = null; }
       ed.marqueeStart = null;
@@ -585,7 +660,7 @@
     }
     if (ed.mode === "frame") {
       ed.mode = null;
-      M.Style.setOpen(true);
+      autoOpenStyle();
       return;
     }
     if (ed.mode === "node") {
@@ -607,7 +682,7 @@
         M.Render.applySelectionClasses();
       } else if (node) {
         M.Model.setPrimary(node.id);
-        M.Style.setOpen(true);
+        autoOpenStyle();
       }
       ed.mode = null;
       return;
@@ -713,7 +788,7 @@
       beginFrameLabelEdit(frame);
       return;
     }
-    const node = targetNode(e);
+    const node = nodeNearClient(e);
     if (node) beginEdit(node);
   }
 
@@ -755,13 +830,7 @@
         if (ed.selectedFrameId === frame.id) ed.selectedFrameId = null;
       });
     });
-    const rect = ed.svg.getBoundingClientRect();
-    if (M.I18n) M.I18n.apply(menu);
-    menu.style.display = "block";
-    const mw = menu.offsetWidth, mh = menu.offsetHeight;
-    const vw = ed.wrap.clientWidth, vh = ed.wrap.clientHeight;
-    menu.style.left = Math.min(x, vw - mw - 6) + "px";
-    menu.style.top = Math.min(y, vh - mh - 6) + "px";
+    placeMenu(x, y);
   }
 
   function showRelMenu(x, y, rel) {
@@ -795,13 +864,7 @@
         else delete rel.toFrame;
       });
     });
-    const rect = ed.svg.getBoundingClientRect();
-    if (M.I18n) M.I18n.apply(menu);
-    menu.style.display = "block";
-    const mw = menu.offsetWidth, mh = menu.offsetHeight;
-    const vw = ed.wrap.clientWidth, vh = ed.wrap.clientHeight;
-    menu.style.left = Math.min(x, vw - mw - 6) + "px";
-    menu.style.top = Math.min(y, vh - mh - 6) + "px";
+    placeMenu(x, y);
   }
 
   function onDocPointerDown(e) {
@@ -1140,6 +1203,27 @@
     }
   }
 
+  function placeMenu(x, y) {
+    const menu = document.getElementById("ctx-menu");
+    if (M.I18n) M.I18n.apply(menu);
+    menu.style.display = "block";
+    const pos = typeof getComputedStyle === "function" ? getComputedStyle(menu).position : "";
+    const vv = window.visualViewport;
+    const vh = vv ? vv.height + (vv.offsetTop || 0) : (window.innerHeight || ed.wrap.clientHeight);
+    const avail = Math.max(120, vh - ed.wrap.getBoundingClientRect().top - 12);
+    menu.style.maxHeight = avail + "px";
+    menu.style.overflowY = "auto";
+    if (pos === "fixed") {
+      menu.style.left = "";
+      menu.style.top = "";
+      return;
+    }
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    const vw = ed.wrap.clientWidth;
+    menu.style.left = Math.max(6, Math.min(x, vw - mw - 6)) + "px";
+    menu.style.top = Math.max(6, Math.min(y, ed.wrap.clientHeight - mh - 6)) + "px";
+  }
+
   function showContextMenu(x, y, node) {
     hideContextMenu();
     const menu = document.getElementById("ctx-menu");
@@ -1262,13 +1346,7 @@
       add("\u26f6\u2002\u9002\u5e94\u753b\u5e03", () => M.Render.fit());
     }
 
-    const rect = ed.svg.getBoundingClientRect();
-    if (M.I18n) M.I18n.apply(menu);
-    menu.style.display = "block";
-    const mw = menu.offsetWidth, mh = menu.offsetHeight;
-    const vw = ed.wrap.clientWidth, vh = ed.wrap.clientHeight;
-    menu.style.left = Math.min(x, vw - mw - 6) + "px";
-    menu.style.top = Math.min(y, vh - mh - 6) + "px";
+    placeMenu(x, y);
   }
 
   function hideContextMenu() {
@@ -1308,10 +1386,7 @@
     row.appendChild(none);
     COLORS.forEach(swatch);
     menu.appendChild(row);
-    if (M.I18n) M.I18n.apply(menu);
-    menu.style.display = "block";
-    menu.style.left = "6px";
-    menu.style.top = "6px";
+    placeMenu(6, 6);
   }
 
   function toggleGroupFrame() {
@@ -1452,7 +1527,7 @@
   }
 
   M.Editor = {
-    init, beginEdit, zoomBy, selectRelation, repositionEdit,
+    init, beginEdit, zoomBy, selectRelation, repositionEdit, nearestRectIndex,
     selectedRelationId: () => ed.selectedRelId,
     selectedFrameId: () => ed.selectedFrameId,
     isConnecting: () => !!ed.connectFrom,
