@@ -259,6 +259,13 @@ button.icon-btn { padding: 5px 8px; line-height: 1; }
   background: var(--panel-bg); border: 1px solid var(--panel-border);
   border-radius: 12px; padding: 22px 30px; text-align: center;
   box-shadow: var(--shadow); max-width: 300px;
+  position: relative; pointer-events: auto;
+}
+#empty-hint .eh-close {
+  position: absolute; top: 6px; right: 8px;
+  border: none; background: transparent; cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 4px;
+  color: var(--ui-muted);
 }
 #empty-hint .eh-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
 #empty-hint .eh-item { font-size: 13px; color: var(--ui-muted); line-height: 1.9; }

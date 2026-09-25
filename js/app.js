@@ -4,6 +4,7 @@
   const M = (window.MM = window.MM || {});
 
   const WELCOME_KEY = "mm.welcome.hidden.v1";
+  const EMPTY_HINT_KEY = "mm.empty-hint.hidden.v1";
 
 
   const THEMES = [
@@ -420,9 +421,22 @@
     updateEmptyHint();
   }
 
+  function isEmptyHintDismissed() {
+    try { return localStorage.getItem(EMPTY_HINT_KEY) === "1"; } catch (err) { return false; }
+  }
+
+  function dismissEmptyHint() {
+    try { localStorage.setItem(EMPTY_HINT_KEY, "1"); } catch (err) {}
+    updateEmptyHint();
+  }
+
   function updateEmptyHint() {
     const hint = $("empty-hint");
     if (!hint || !M.Model.root) return;
+    if (isEmptyHintDismissed()) {
+      hint.style.display = "none";
+      return;
+    }
     hint.style.display = M.Model.root.children.length === 0 ? "" : "none";
   }
 
@@ -487,6 +501,11 @@
     M.Editor.init($("canvas-wrap"), $("canvas"));
     M.Minimap.init($("minimap"));
     wireToolbar();
+    const emptyClose = $("empty-hint-close");
+    if (emptyClose) emptyClose.addEventListener("click", (e) => {
+      if (e && e.stopPropagation) e.stopPropagation();
+      dismissEmptyHint();
+    });
     if (M.I18n) M.I18n.applyStatic();
 
     M.Storage.init().then(start);
@@ -498,5 +517,5 @@
     init();
   }
 
-  M.App = { init, toast, modal, showHelp, showWelcome, showNewDialog, setNotesOpen, showSaveDialog };
+  M.App = { init, toast, modal, showHelp, showWelcome, showNewDialog, setNotesOpen, showSaveDialog, isEmptyHintDismissed, dismissEmptyHint, updateEmptyHint };
 })();
