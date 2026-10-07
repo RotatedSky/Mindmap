@@ -203,6 +203,51 @@ test("style 随 JSON 序列化保留，旧数据无 style 兼容", () => {
   assert.equal(a3.style, undefined, "旧数据无 style 字段");
 });
 
+test("updateTreeDragPreview: 跟手且不污染模型坐标", () => {
+  const { mm } = fresh();
+  mm.Theme.get = () => THEME;
+  const root = mm.Model.createNode("root");
+  const a = mm.Model.addChild(root, "a");
+  const b = mm.Model.addChild(a, "b");
+  mm.Model.replaceRoot(root);
+  root.x = 0; root.y = 0; root.w = 100; root.h = 40; root.side = 1; root.depth = 0;
+  a.x = 200; a.y = 0; a.w = 100; a.h = 40; a.side = 1; a.depth = 1;
+  b.x = 350; b.y = 0; b.w = 100; b.h = 40; b.side = 1; b.depth = 1;
+  const stubEl = () => ({
+    attrs: {},
+    setAttribute(k, v) { this.attrs[k] = String(v); },
+    classList: { toggle() {}, remove() {}, add() {}, contains() { return false; } }
+  });
+  const aEl = stubEl(), bEl = stubEl(), connA = stubEl(), connB = stubEl();
+  mm.Render.view.nodeEls.set(a.id, aEl);
+  mm.Render.view.nodeEls.set(b.id, bEl);
+  mm.Render.view.connEls.set(a.id, connA);
+  mm.Render.view.connEls.set(b.id, connB);
+  mm.Render.updateTreeDragPreview([a.id, b.id], 10, 20);
+  assert.equal(aEl.attrs.transform, "translate(210 20)");
+  assert.equal(bEl.attrs.transform, "translate(360 20)");
+  assert.equal(a.x, 200);
+  assert.equal(a.y, 0);
+  assert.equal(b.x, 350);
+  assert.equal(connB.attrs.d, "M 260 20 C 285 20, 285 20, 310 20");
+});
+
+test("showReorderLine/clearReorderLine: 插入线可显示可清除", () => {
+  const { mm } = fresh();
+  const kids = [];
+  mm.Render.view.world = {
+    appendChild(c) { kids.push(c); return c; },
+    querySelector() { return null; }
+  };
+  mm.Render.showReorderLine({ x1: 10, x2: 110, y: 55 });
+  assert.equal(kids.length, 1);
+  assert.equal(kids[0].getAttribute("x1"), "10");
+  assert.equal(kids[0].getAttribute("x2"), "110");
+  assert.equal(kids[0].getAttribute("y1"), "55");
+  mm.Render.clearReorderLine();
+  assert.equal(mm.Render.view.reorderLine, null);
+});
+
 test("导出 SVG 保留节点自定义样式", () => {
   const { mm } = fresh();
   mm.Theme.get = () => THEME;

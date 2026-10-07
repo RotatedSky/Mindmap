@@ -670,9 +670,73 @@
     }
   }
 
+  function updateTreeDragPreview(movedIds, dx, dy) {
+    const theme = M.Theme.get();
+    const moved = new Set(movedIds);
+    const pos = new Map();
+    for (const id of moved) {
+      const node = M.Model.find(M.Model.root, id);
+      if (node) pos.set(id, { x: node.x + dx, y: node.y + dy });
+    }
+    const fake = (node, p) => ({ x: p.x, y: p.y, w: node.w, h: node.h, side: node.side, depth: node.depth });
+    for (const id of moved) {
+      const node = M.Model.find(M.Model.root, id);
+      const p = pos.get(id);
+      if (!node || !p) continue;
+      const el = svg.nodeEls.get(id);
+      if (el) el.setAttribute("transform", "translate(" + p.x + " " + p.y + ")");
+    }
+    for (const id of moved) {
+      const node = M.Model.find(M.Model.root, id);
+      const p = pos.get(id);
+      if (!node || !p) continue;
+      if (node !== M.Model.root) {
+        const parent = M.Model.findParent(M.Model.root, id);
+        const conn = svg.connEls.get(id);
+        if (conn && parent && !moved.has(parent.id)) {
+          conn.setAttribute("d", connectorPath(parent, fake(node, p), theme));
+        }
+      }
+      for (const c of node.children) {
+        const conn = svg.connEls.get(c.id);
+        if (!conn) continue;
+        if (moved.has(c.id)) {
+          const cp = pos.get(c.id);
+          if (cp) conn.setAttribute("d", connectorPath(fake(node, p), fake(c, cp), theme));
+        } else {
+          conn.setAttribute("d", connectorPath(fake(node, p), c, theme));
+        }
+      }
+    }
+  }
+
+  function showReorderLine(info) {
+    clearReorderLine();
+    if (!svg.world || !info) return;
+    const el = svgEl("line", {
+      id: "drop-insert-line",
+      x1: info.x1, y1: info.y, x2: info.x2, y2: info.y,
+      stroke: "#ff8c1a", "stroke-width": 3.5, "stroke-linecap": "round",
+      "pointer-events": "none"
+    }, svg.world);
+    svg.reorderLine = el;
+  }
+
+  function clearReorderLine() {
+    if (svg.reorderLine && svg.reorderLine.remove) {
+      try { svg.reorderLine.remove(); } catch (err) {}
+    }
+    svg.reorderLine = null;
+    try {
+      const old = svg.world && svg.world.querySelector ? svg.world.querySelector("#drop-insert-line") : null;
+      if (old && old.remove) old.remove();
+    } catch (err) {}
+  }
+
   function render() {
     const el = svg.el;
     el.innerHTML = "";
+    svg.reorderLine = null;
     const world = svgEl("g", {}, el);
     svg.world = world;
     renderTreeInto(world);
@@ -750,7 +814,8 @@
     init(el) { svg.el = el; },
     render, renderTreeInto, applySelectionClasses,
     setTransform, worldToScreen, screenToWorld, fit, centerOn,
-    toSVGString, updateFreeDrag, updateRelation, relationGeometry, bezierPoint, frameGeometry, footprintOf,
+    toSVGString, updateFreeDrag, updateTreeDragPreview, showReorderLine, clearReorderLine,
+    updateRelation, relationGeometry, bezierPoint, frameGeometry, footprintOf,
     hitFrame,
     get view() { return svg; }
   };

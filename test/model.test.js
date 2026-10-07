@@ -107,6 +107,33 @@ test("moveNode 移动、拒绝环与根节点", () => {
   assert.equal(mm.Model.moveNode(b, a), true);
 });
 
+test("moveNode 支持指定位置插入与同父重排", () => {
+  const { mm, root } = freshRoot();
+  const a = mm.Model.addChild(root, "a");
+  const b = mm.Model.addChild(root, "b");
+  const c = mm.Model.addChild(root, "c");
+  assert.equal(mm.Model.moveNode(c, root, 0), true);
+  sameJSON(root.children.map((n) => n.text), ["c", "a", "b"]);
+  assert.equal(mm.Model.moveNode(a, root, 2), true);
+  sameJSON(root.children.map((n) => n.text), ["c", "b", "a"]);
+  assert.equal(mm.Model.moveNode(c, b), true);
+  sameJSON(b.children.map((n) => n.text), ["c"]);
+  sameJSON(root.children.map((n) => n.text), ["b", "a"]);
+});
+
+test("moveNode index 越界钳制与非法参数", () => {
+  const { mm, root } = freshRoot();
+  const a = mm.Model.addChild(root, "a");
+  const b = mm.Model.addChild(root, "b");
+  assert.equal(mm.Model.moveNode(b, root, -5), true);
+  sameJSON(root.children.map((n) => n.text), ["b", "a"]);
+  assert.equal(mm.Model.moveNode(b, root, 99), true);
+  sameJSON(root.children.map((n) => n.text), ["a", "b"]);
+  assert.equal(mm.Model.moveNode(null, root), false);
+  assert.equal(mm.Model.moveNode(a, null), false);
+  assert.equal(mm.Model.moveNode(a, a), false);
+});
+
 test("isDescendant 判断祖先关系", () => {
   const { mm } = fresh();
   const root = mm.Model.root;

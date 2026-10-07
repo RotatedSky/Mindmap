@@ -94,7 +94,7 @@
     "拖动空白区": "drag empty area",
     "框选多个节点": "Box-select multiple nodes",
     "拖动节点到目标": "Drag node to target",
-    "调整父子关系（树形模式）": "Reparent node (tree mode)",
+    "挂载为子节点 / 调整兄弟顺序（树形模式，拖拽跟手）": "Drop onto a node to reparent / onto its edges to reorder (tree mode, live preview)",
     "滚轮 / 双指缩放": "Scroll / pinch to zoom",
     "缩放画布": "Zoom canvas",
     "拖动空白区域": "Drag empty area",

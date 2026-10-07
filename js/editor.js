@@ -14,6 +14,7 @@
     panStart: null,
     dragNodeId: null,
     dragStart: null,
+    treeDrop: null,
     moved: false,
     pinchStart: null,
     editInput: null,
@@ -356,6 +357,7 @@
       ed.mode = "node";
       ed.dragNodeId = node.id;
       ed.dragStart = { x: e.clientX, y: e.clientY };
+      ed.treeDrop = null;
       ed.moved = false;
       scheduleLongPress(e, node);
     } else {
@@ -377,12 +379,22 @@
     if (!ed.pointers.has(e.pointerId)) return;
     if (ed.svg && ed.svg.contains(e.target)) return;
     ed.pointers.delete(e.pointerId);
+    if (ed.mode === "node" && ed.treeDrop) {
+      ed.treeDrop = null;
+      clearTreeDropMarks();
+      if (M.Render && M.Render.render) M.Render.render();
+    }
     ed.mode = null;
     ed.moved = false;
     clearTimeout(ed.longPressTimer);
   }
 
   function clearPointers() {
+    if (ed.mode === "node" && ed.treeDrop) {
+      ed.treeDrop = null;
+      clearTreeDropMarks();
+      if (M.Render && M.Render.render) M.Render.render();
+    }
     ed.pointers.clear();
     ed.mode = null;
     ed.moved = false;
@@ -597,10 +609,111 @@
     const rect = ed.svg.getBoundingClientRect();
     const w = M.Render.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
     const node = M.Model.find(M.Model.root, ed.dragNodeId);
-    const target = hitNodeAt(w.x, w.y, node);
-    for (const [id, el] of M.Render.view.nodeEls) {
-      el.classList.toggle("drop-target", id === (target && target.id));
+    if (!node) return;
+    const s = (M.Render.view && M.Render.view.s) || 1;
+    const dx = (e.clientX - ed.dragStart.x) / s;
+    const dy = (e.clientY - ed.dragStart.y) / s;
+    if (M.Render.updateTreeDragPreview) {
+      M.Render.updateTreeDragPreview(treeSubtreeIds(node), dx, dy);
+    } else {
+      const el = M.Render.view.nodeEls.get(node.id);
+      if (el) el.setAttribute("transform", "translate(" + (node.x + dx) + " " + (node.y + dy) + ")");
     }
+    const target = hitNodeAt(w.x, w.y, node);
+    const drop = target ? classifyTreeDrop(node, target, w.y) : null;
+    const op = drop ? resolveTreeDrop(node, drop) : null;
+    ed.treeDrop = op ? drop : null;
+    for (const [id, el] of M.Render.view.nodeEls) {
+      el.classList.toggle("drop-target", !!(op && drop.kind === "child" && id === drop.target.id));
+    }
+    if (op && drop.kind !== "child") {
+      const info = reorderLineInfo(drop);
+      if (info && M.Render.showReorderLine) M.Render.showReorderLine(info);
+      else if (M.Render.clearReorderLine) M.Render.clearReorderLine();
+    } else if (M.Render.clearReorderLine) M.Render.clearReorderLine();
+  }
+
+  function treeSubtreeIds(node) {
+    const out = [];
+    const vis = new Set(M.Model.visibleNodes(M.Model.root).map((n) => n.id));
+    const walk = (n) => {
+      if (!vis.has(n.id)) return;
+      out.push(n.id);
+      if (!n.collapsed) for (const c of n.children) walk(c);
+    };
+    walk(node);
+    return out;
+  }
+
+  function classifyTreeDrop(dragNode, target, wy) {
+    if (!dragNode || !target || dragNode === target) return null;
+    if (M.Model.isDescendant(dragNode, target)) return null;
+    if (M.Model.isDescendant(target, dragNode)) return null;
+    const parent = M.Model.findParent(M.Model.root, target.id);
+    if (!parent) return { kind: "child", target };
+    const zone = Math.min(target.h * 0.25, 14);
+    const top = target.y - target.h / 2;
+    const bottom = target.y + target.h / 2;
+    if (wy <= top + zone) return { kind: "before", target };
+    if (wy >= bottom - zone) return { kind: "after", target };
+    return { kind: "child", target };
+  }
+
+  function reorderLineInfo(drop) {
+    if (!drop || drop.kind === "child") return null;
+    const target = drop.target;
+    const parent = M.Model.findParent(M.Model.root, target.id);
+    if (!parent) return null;
+    const sibs = parent.children;
+    const idx = sibs.indexOf(target);
+    if (idx < 0) return null;
+    let y;
+    if (drop.kind === "before") {
+      const prev = sibs[idx - 1];
+      y = prev ? (prev.y + prev.h / 2 + target.y - target.h / 2) / 2 : target.y - target.h / 2 - 8;
+    } else {
+      const next = sibs[idx + 1];
+      y = next ? (target.y + target.h / 2 + next.y - next.h / 2) / 2 : target.y + target.h / 2 + 8;
+    }
+    const half = Math.max(target.w / 2, 40);
+    return { x1: target.x - half, x2: target.x + half, y };
+  }
+
+  function resolveTreeDrop(dragNode, drop) {
+    if (!dragNode || !drop || !drop.target) return null;
+    const target = M.Model.find(M.Model.root, drop.target.id);
+    if (!target || target === dragNode) return null;
+    if (M.Model.isDescendant(dragNode, target)) return null;
+    if (M.Model.isDescendant(target, dragNode)) return null;
+    if (drop.kind === "child") {
+      if (target === M.Model.findParent(M.Model.root, dragNode.id)) return null;
+      return { parent: target, index: target.children.length };
+    }
+    const parent = M.Model.findParent(M.Model.root, target.id);
+    if (!parent) return null;
+    const oldParent = M.Model.findParent(M.Model.root, dragNode.id);
+    if (oldParent === parent) {
+      const without = parent.children.filter((c) => c !== dragNode);
+      let idx = without.indexOf(target);
+      if (idx < 0) return null;
+      if (drop.kind === "after") idx++;
+      const oldIdx = parent.children.indexOf(dragNode);
+      if (idx === oldIdx) return null;
+      return { parent, index: idx };
+    }
+    let idx = parent.children.indexOf(target);
+    if (idx < 0) return null;
+    if (drop.kind === "after") idx++;
+    return { parent, index: idx };
+  }
+
+  function clearTreeDropMarks() {
+    if (M.Render && M.Render.view && M.Render.view.nodeEls) {
+      for (const el of M.Render.view.nodeEls.values()) {
+        if (el.classList) el.classList.remove("drop-target");
+      }
+    }
+    if (M.Render && M.Render.clearReorderLine) M.Render.clearReorderLine();
   }
 
   function hitNodeAt(wx, wy, self) {
@@ -668,12 +781,18 @@
       ed.dragNodeId = null;
       if (ed.moved) {
         if (M.Model.settings.layoutMode === "tree") {
-          const rect = ed.svg.getBoundingClientRect();
-          const w = M.Render.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
-          const target = hitNodeAt(w.x, w.y, node);
-          for (const el of M.Render.view.nodeEls.values()) el.classList.remove("drop-target");
-          if (target && node) {
-            M.Model.change(() => M.Model.moveNode(node, target));
+          const drop = ed.treeDrop;
+          ed.treeDrop = null;
+          clearTreeDropMarks();
+          if (drop && node) {
+            const op = resolveTreeDrop(node, drop);
+            if (op) {
+              M.Model.change(() => M.Model.moveNode(node, op.parent, op.index));
+            } else {
+              M.Render.render();
+            }
+          } else {
+            M.Render.render();
           }
         } else if (ed.freeDragRecorded) {
           ed.freeDragRecorded = false;
@@ -1528,6 +1647,7 @@
 
   M.Editor = {
     init, beginEdit, zoomBy, selectRelation, repositionEdit, nearestRectIndex,
+    classifyTreeDrop, resolveTreeDrop,
     selectedRelationId: () => ed.selectedRelId,
     selectedFrameId: () => ed.selectedFrameId,
     isConnecting: () => !!ed.connectFrom,

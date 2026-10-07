@@ -396,13 +396,21 @@
     });
   }
 
-  function moveNode(node, newParent) {
-    if (node === state.root || newParent === node || isDescendant(node, newParent)) return false;
+  function moveNode(node, newParent, index) {
+    if (!node || !newParent || node === state.root || newParent === node || isDescendant(node, newParent)) return false;
     const parent = findParent(state.root, node.id);
     if (!parent) return false;
-    const idx = parent.children.indexOf(node);
-    parent.children.splice(idx, 1);
-    newParent.children.push(node);
+    const fromIdx = parent.children.indexOf(node);
+    if (fromIdx < 0) return false;
+    if (parent === newParent) {
+      parent.children.splice(fromIdx, 1);
+      const toIdx = index == null ? parent.children.length : Math.max(0, Math.min(index, parent.children.length));
+      parent.children.splice(toIdx, 0, node);
+      return true;
+    }
+    parent.children.splice(fromIdx, 1);
+    const toIdx = index == null ? newParent.children.length : Math.max(0, Math.min(index, newParent.children.length));
+    newParent.children.splice(toIdx, 0, node);
     newParent.collapsed = false;
     return true;
   }
