@@ -137,6 +137,16 @@ test("nodeSize 超宽文本宽度封顶", () => {
   assert.equal(n80.w, n50.w);
 });
 
+test("nodeSize 超宽公式不封顶、完整收纳进节点框", () => {
+  const { mm } = fresh();
+  const cap = mm.Layout.MAX_W + mm.Layout.PAD_X * 2;
+  const n = mm.Model.createNode("$" + "x".repeat(81) + "$");
+  n.parentKind = "node";
+  mm.Layout.nodeSize(n, THEME);
+  assert.equal(n.w, 81 * 8 + mm.Layout.PAD_X * 2);
+  assert.ok(n.w > cap);
+});
+
 test("nodeSize 含图片时增加图片区高度", () => {
   const { mm } = fresh();
   const n = mm.Model.createNode("pic");

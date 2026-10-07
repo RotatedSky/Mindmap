@@ -145,7 +145,6 @@
       maxW = Math.max(maxW, w);
     }
     const w = Math.max(40, maxW + PAD_X * 2);
-    const capped = Math.min(w, MAX_W + PAD_X * 2);
     const lh = Math.round(fs * 1.4);
     let h = PAD_Y * 2 + 4;
     for (const l of lines) {
@@ -159,7 +158,7 @@
       h += lh2;
     }
     if (node.image) h += IMG_H + IMG_GAP;
-    node.w = capped;
+    node.w = w;
     node.h = h;
   }
 

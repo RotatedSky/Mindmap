@@ -268,13 +268,13 @@
   function width(str, fs) {
     if (!str) return 0;
     const f = fs || 16;
-    if (typeof str === "string" && hasRealDom()) return measureReal(str, f).w;
+    if (typeof str === "string" && hasRealDom() && katex()) return measureReal(str, f).w;
     return measureStub(str, f).w;
   }
 
   function height(str, fs) {
     const f = fs || 16;
-    if (typeof str === "string" && hasRealDom()) {
+    if (typeof str === "string" && hasRealDom() && katex()) {
       const m = measureReal(str, f);
       return { ascent: m.h * 0.72, descent: m.h * 0.28 };
     }
